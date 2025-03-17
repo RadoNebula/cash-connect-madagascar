@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +14,23 @@ import TransferForm from "@/components/transactions/TransferForm";
 
 const TransactionsPage = () => {
   const navigate = useNavigate();
+  const params = useParams();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("deposit");
+  const [activeTab, setActiveTab] = useState(params.type || "deposit");
 
+  // Set the active tab based on the URL parameter if available
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
+    if (params.type && (params.type === "deposit" || params.type === "withdraw" || params.type === "transfer")) {
+      setActiveTab(params.type);
     }
-  }, [user, navigate]);
+  }, [params.type]);
+
+  // This useEffect hook is no longer needed as we're using ProtectedRoute in App.tsx
+  // useEffect(() => {
+  //   if (!user) {
+  //     navigate("/login");
+  //   }
+  // }, [user, navigate]);
 
   if (!user) {
     return null;
@@ -37,7 +46,7 @@ const TransactionsPage = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="deposit" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs defaultValue="deposit" value={activeTab as string} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="deposit" className="flex items-center gap-2">
               <PlusIcon className="h-4 w-4 text-success" />

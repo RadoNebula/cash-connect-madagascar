@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -25,12 +24,6 @@ const Index = () => {
   
   const recentTransactions = getRecentTransactions(5);
   
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-    }
-  }, [user, navigate]);
-
   if (!user) {
     return null;
   }
