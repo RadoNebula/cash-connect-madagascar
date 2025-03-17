@@ -2,21 +2,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ServiceIcon } from "@/components/ServiceIcon";
 import { useTransactions, MobileMoneyService } from "@/context/TransactionContext";
 import { useAuth } from "@/context/AuthContext";
-import { InfoIcon, ArrowRightIcon } from "lucide-react";
+import { InfoIcon, ArrowRightIcon, SmartphoneIcon } from "lucide-react";
 
 const WithdrawForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { withdrawMoney, isLoading } = useTransactions();
+  const { withdrawMoney, isLoading, getServiceBalance, getCashBalance } = useTransactions();
   const [service, setService] = useState<MobileMoneyService>("mvola");
   const [amount, setAmount] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,6 +38,11 @@ const WithdrawForm = () => {
       return;
     }
 
+    if (!phoneNumber) {
+      setError("Veuillez entrer le numéro de téléphone du client qui a transféré l'argent");
+      return;
+    }
+
     const amountValue = parseInt(amount, 10);
     if (isNaN(amountValue) || amountValue <= 0) {
       setError("Veuillez entrer un montant valide");
@@ -49,19 +54,16 @@ const WithdrawForm = () => {
       return;
     }
 
-    const serviceBalance = user.balances[service];
-    if (amountValue > serviceBalance) {
-      setError(`Solde insuffisant. Votre solde ${service} est de ${serviceBalance.toLocaleString()} Ar`);
+    // Check cash balance
+    const cashBalance = getCashBalance();
+    if (amountValue > cashBalance) {
+      setError(`Solde en espèces insuffisant. Votre solde est de ${cashBalance.toLocaleString()} Ar`);
       return;
     }
 
     const fees = Math.max(300, amountValue * 0.02);
-    if (amountValue + fees > serviceBalance) {
-      setError(`Solde insuffisant pour couvrir le montant et les frais de ${fees.toLocaleString()} Ar`);
-      return;
-    }
-
-    const success = await withdrawMoney(service, amountValue);
+    
+    const success = await withdrawMoney(service, amountValue, phoneNumber);
     if (success) {
       navigate("/");
     }
@@ -139,6 +141,21 @@ const WithdrawForm = () => {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="phone-number-withdraw">Numéro de téléphone du client</Label>
+        <div className="relative">
+          <SmartphoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="phone-number-withdraw"
+            type="text"
+            placeholder="Ex: 034 00 000 00"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="amount-withdraw">Montant du retrait</Label>
         <div className="relative">
           <Input
@@ -192,6 +209,7 @@ const WithdrawForm = () => {
         <div className="text-sm text-muted-foreground">
           <p>Les frais de retrait sont de 2% du montant (minimum 300 Ar).</p>
           <p>Montant minimum: 1 000 Ar</p>
+          <p>Pour un retrait, votre solde en espèces diminue et votre solde mobile money augmente.</p>
         </div>
       </div>
 

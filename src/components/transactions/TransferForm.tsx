@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -11,12 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ServiceIcon } from "@/components/ServiceIcon";
 import { useTransactions, MobileMoneyService } from "@/context/TransactionContext";
 import { useAuth, Contact } from "@/context/AuthContext";
-import { InfoIcon, UserIcon, ArrowRightIcon } from "lucide-react";
+import { InfoIcon, UserIcon, ArrowRightIcon, SmartphoneIcon } from "lucide-react";
 
 const TransferForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { transferMoney, isLoading } = useTransactions();
+  const { transferMoney, isLoading, getCashBalance } = useTransactions();
   const [service, setService] = useState<MobileMoneyService>("mvola");
   const [amount, setAmount] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -81,15 +80,16 @@ const TransferForm = () => {
       return;
     }
 
-    const serviceBalance = user.balances[service];
-    if (amountValue > serviceBalance) {
-      setError(`Solde insuffisant. Votre solde ${service} est de ${serviceBalance.toLocaleString()} Ar`);
+    // Check cash balance
+    const cashBalance = getCashBalance();
+    if (amountValue > cashBalance) {
+      setError(`Solde en espèces insuffisant. Votre solde est de ${cashBalance.toLocaleString()} Ar`);
       return;
     }
 
     const fees = Math.max(200, amountValue * 0.015);
-    if (amountValue + fees > serviceBalance) {
-      setError(`Solde insuffisant pour couvrir le montant et les frais de ${fees.toLocaleString()} Ar`);
+    if (amountValue + fees > cashBalance) {
+      setError(`Solde en espèces insuffisant pour couvrir le montant et les frais de ${fees.toLocaleString()} Ar`);
       return;
     }
 
@@ -211,12 +211,16 @@ const TransferForm = () => {
 
           <div className="space-y-2">
             <Label htmlFor="recipient-phone">Numéro du destinataire</Label>
-            <Input
-              id="recipient-phone"
-              value={recipientPhone}
-              onChange={(e) => setRecipientPhone(e.target.value)}
-              placeholder="Ex: +261 34 00 000 00"
-            />
+            <div className="relative">
+              <SmartphoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="recipient-phone"
+                value={recipientPhone}
+                onChange={(e) => setRecipientPhone(e.target.value)}
+                placeholder="Ex: 034 00 000 00"
+                className="pl-10"
+              />
+            </div>
           </div>
         </>
       )}
@@ -287,6 +291,7 @@ const TransferForm = () => {
         <div className="text-sm text-muted-foreground">
           <p>Les frais de transfert sont de 1.5% du montant (minimum 200 Ar).</p>
           <p>Montant minimum: 1 000 Ar</p>
+          <p>Pour un transfert, votre solde en espèces augmente et votre solde mobile money diminue.</p>
         </div>
       </div>
 

@@ -7,16 +7,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { ServiceIcon } from "@/components/ServiceIcon";
-import { PlusIcon, MinusIcon, MoveHorizontalIcon } from "lucide-react";
+import { PlusIcon, MinusIcon, MoveHorizontalIcon, CoinsIcon } from "lucide-react";
 import DepositForm from "@/components/transactions/DepositForm";
 import WithdrawForm from "@/components/transactions/WithdrawForm";
 import TransferForm from "@/components/transactions/TransferForm";
+import SessionBalanceForm from "@/components/transactions/SessionBalanceForm";
+import { useTransactions } from "@/context/TransactionContext";
+import { toast } from "sonner";
 
 const TransactionsPage = () => {
   const navigate = useNavigate();
   const params = useParams();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState(params.type || "deposit");
+  const { sessionStarted } = useTransactions();
+  const [activeTab, setActiveTab] = useState(params.type || "session");
 
   // Set the active tab based on the URL parameter if available
   useEffect(() => {
@@ -25,16 +29,18 @@ const TransactionsPage = () => {
     }
   }, [params.type]);
 
-  // This useEffect hook is no longer needed as we're using ProtectedRoute in App.tsx
-  // useEffect(() => {
-  //   if (!user) {
-  //     navigate("/login");
-  //   }
-  // }, [user, navigate]);
-
   if (!user) {
     return null;
   }
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value !== "session" && !sessionStarted) {
+      toast.warning("Veuillez d'abord initialiser les soldes de départ de la session");
+      setActiveTab("session");
+      return;
+    }
+  };
 
   return (
     <AppShell>
@@ -46,8 +52,12 @@ const TransactionsPage = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="deposit" value={activeTab as string} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="session" value={activeTab as string} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="session" className="flex items-center gap-2">
+              <CoinsIcon className="h-4 w-4 text-primary" />
+              <span>Soldes</span>
+            </TabsTrigger>
             <TabsTrigger value="deposit" className="flex items-center gap-2">
               <PlusIcon className="h-4 w-4 text-success" />
               <span>Dépôt</span>
@@ -63,6 +73,20 @@ const TransactionsPage = () => {
           </TabsList>
           
           <div className="mt-6">
+            <TabsContent value="session">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Soldes de début de session</CardTitle>
+                  <CardDescription>
+                    Indiquez les soldes de départ pour chaque service et en espèces
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SessionBalanceForm />
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
             <TabsContent value="deposit">
               <Card>
                 <CardHeader>
