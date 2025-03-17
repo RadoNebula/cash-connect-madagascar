@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,14 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Custom colors for our mobile money services
+				mvola: "#E04006",
+				'orange-money': "#FF7900",
+				'airtel-money': "#FF0000",
+				success: "#10B981",
+				warning: "#F59E0B",
+				info: "#0EA5E9"
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
