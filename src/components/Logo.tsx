@@ -1,12 +1,14 @@
 
 import { cn } from "@/lib/utils";
+import { Image } from "@/components/ui/image";
 
 interface LogoProps {
   className?: string;
   size?: "sm" | "md" | "lg";
+  showImage?: boolean;
 }
 
-export const Logo = ({ className, size = "md" }: LogoProps) => {
+export const Logo = ({ className, size = "md", showImage = true }: LogoProps) => {
   const sizeClasses = {
     sm: "text-xl",
     md: "text-2xl",
@@ -15,8 +17,14 @@ export const Logo = ({ className, size = "md" }: LogoProps) => {
 
   return (
     <div className={cn("font-bold flex items-center", sizeClasses[size], className)}>
-      <span className="text-primary mr-1">Cash</span>
-      <span className="bg-primary text-primary-foreground px-2 rounded-md">Point</span>
+      {showImage && (
+        <img 
+          src="/lovable-uploads/70cc2e53-7cec-4f0a-a459-b680625fb32c.png" 
+          alt="Kioska Nakà Logo" 
+          className="h-10 mr-2"
+        />
+      )}
+      <span className="text-primary sr-only">Kioska Nakà</span>
     </div>
   );
 };

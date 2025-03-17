@@ -69,7 +69,13 @@ export default {
 				'airtel-money': "#FF0000",
 				success: "#10B981",
 				warning: "#F59E0B",
-				info: "#0EA5E9"
+				info: "#0EA5E9",
+				// Kioska Nakà brand colors
+				kioska: {
+					gold: "#E2AA2F",
+					navy: "#0B2B4F",
+					white: "#FFFFFF",
+				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
