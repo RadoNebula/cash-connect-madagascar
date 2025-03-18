@@ -6,12 +6,25 @@ export type User = {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   balances: {
     mvola: number;
     orangeMoney: number;
     airtelMoney: number;
   };
   contacts: Contact[];
+  company?: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+  };
+  receiptSettings?: {
+    showLogo: boolean;
+    showContact: boolean;
+    showCompanyInfo: boolean;
+    footerText: string;
+  };
 };
 
 export type Contact = {
@@ -31,6 +44,7 @@ type AuthContextType = {
   addContact: (contact: Omit<Contact, 'id'>) => void;
   updateContact: (id: string, updates: Partial<Omit<Contact, 'id'>>) => void;
   removeContact: (id: string) => void;
+  updateUser: (updates: Partial<User>) => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,6 +54,7 @@ const mockUser: User = {
   id: "user-1",
   name: "Rakoto Jean",
   phone: "+261 34 00 000 00",
+  email: "rakoto@example.com",
   balances: {
     mvola: 150000,
     orangeMoney: 75000,
@@ -68,6 +83,18 @@ const mockUser: User = {
       category: 'business',
     },
   ],
+  company: {
+    name: "Kioska Nakà",
+    address: "Lot 34 Ambondrona, Antananarivo",
+    phone: "+261 34 00 000 00",
+    email: "contact@kioskanaka.mg"
+  },
+  receiptSettings: {
+    showLogo: true,
+    showContact: true,
+    showCompanyInfo: true,
+    footerText: "Merci de votre confiance!"
+  }
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -192,6 +219,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.success("Contact supprimé!");
   };
 
+  const updateUser = async (updates: Partial<User>): Promise<boolean> => {
+    try {
+      if (!user) return false;
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const updatedUser: User = {
+        ...user,
+        ...updates,
+      };
+      
+      setUser(updatedUser);
+      localStorage.setItem('cashpoint_user', JSON.stringify(updatedUser));
+      return true;
+    } catch (error) {
+      console.error("Error updating user:", error);
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -201,7 +249,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       addContact,
       updateContact,
-      removeContact
+      removeContact,
+      updateUser
     }}>
       {children}
     </AuthContext.Provider>
