@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { useAuth } from './AuthContext';
@@ -49,6 +50,35 @@ type TransactionContextType = {
 };
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
+
+// Define the missing generateMockTransactions function
+const generateMockTransactions = (): Transaction[] => {
+  const services: MobileMoneyService[] = ['mvola', 'orangeMoney', 'airtelMoney'];
+  const types: TransactionType[] = ['deposit', 'withdrawal', 'transfer'];
+  const statuses: ('completed' | 'pending' | 'failed')[] = ['completed', 'pending', 'failed'];
+  
+  return Array(5).fill(null).map((_, index) => {
+    const type = types[Math.floor(Math.random() * types.length)];
+    const service = services[Math.floor(Math.random() * services.length)];
+    const amount = Math.floor(Math.random() * 900000) + 100000; // Between 100,000 and 1,000,000
+    
+    return {
+      id: `mock-tx-${index + 1}`,
+      type,
+      service,
+      amount,
+      fees: type === 'deposit' ? 0 : Math.floor(amount * 0.015),
+      phoneNumber: type !== 'transfer' ? `03${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10000000).toString().padStart(7, '0')}` : undefined,
+      recipient: type === 'transfer' ? {
+        name: `Recipient ${index + 1}`,
+        phone: `03${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10000000).toString().padStart(7, '0')}`
+      } : undefined,
+      description: type === 'transfer' ? `Mock transfer ${index + 1}` : undefined,
+      date: new Date(Date.now() - Math.floor(Math.random() * 604800000)), // Within the last week
+      status: statuses[Math.floor(Math.random() * statuses.length)]
+    };
+  });
+};
 
 export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
