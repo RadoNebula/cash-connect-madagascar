@@ -1,26 +1,24 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { ServiceIcon } from "@/components/ServiceIcon";
 import { useTransactions, MobileMoneyService } from "@/context/TransactionContext";
-import { useAuth, Contact } from "@/context/AuthContext";
-import { InfoIcon, UserIcon, ArrowRightIcon, SmartphoneIcon } from "lucide-react";
+import { InfoIcon, ArrowRightIcon, SmartphoneIcon, UserIcon, FileTextIcon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { Receipt } from "@/components/Receipt";
 
 const TransferForm = () => {
   const navigate = useNavigate();
+  const { transferMoney, isLoading } = useTransactions();
   const { user } = useAuth();
-  const { transferMoney, isLoading, getCashBalance } = useTransactions();
   const [service, setService] = useState<MobileMoneyService>("mvola");
   const [amount, setAmount] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
   const [recipientName, setRecipientName] = useState("");
-  const [contactId, setContactId] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
@@ -31,33 +29,22 @@ const TransferForm = () => {
     setAmount(value);
   };
 
-  const handleContactChange = (contactId: string) => {
-    setContactId(contactId);
-    
-    if (contactId === "new") {
-      setRecipientName("");
-      setRecipientPhone("");
-      return;
-    }
-    
-    const selectedContact = user?.contacts.find(c => c.id === contactId);
-    if (selectedContact) {
-      setRecipientName(selectedContact.name);
-      setRecipientPhone(selectedContact.phone);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!user) {
-      setError("Vous devez être connecté pour effectuer cette opération");
+    if (!service) {
+      setError("Veuillez sélectionner un service");
       return;
     }
 
-    if (!service) {
-      setError("Veuillez sélectionner un service");
+    if (!recipientName) {
+      setError("Veuillez entrer le nom du bénéficiaire");
+      return;
+    }
+
+    if (!recipientPhone) {
+      setError("Veuillez entrer le numéro de téléphone du bénéficiaire");
       return;
     }
 
@@ -72,55 +59,30 @@ const TransferForm = () => {
       return;
     }
 
-    if (!recipientPhone.trim()) {
-      setError("Veuillez saisir le numéro de téléphone du destinataire");
-      return;
-    }
-
-    if (!recipientName.trim()) {
-      setError("Veuillez saisir le nom du destinataire");
-      return;
-    }
-
-    const cashBalance = getCashBalance();
-    if (amountValue > cashBalance) {
-      setError(`Solde en espèces insuffisant. Votre solde est de ${cashBalance.toLocaleString()} Ar`);
-      return;
-    }
-
-    const fees = Math.max(200, amountValue * 0.015);
-    if (amountValue + fees > cashBalance) {
-      setError(`Solde en espèces insuffisant pour couvrir le montant et les frais de ${fees.toLocaleString()} Ar`);
-      return;
-    }
-
-    const transaction = await transferMoney(
-      service, 
-      amountValue, 
-      { name: recipientName, phone: recipientPhone },
-      description
-    );
-    
-    if (transaction) {
-      setCompletedTransaction(transaction);
-      setShowReceipt(true);
+    try {
+      const transaction = await transferMoney(
+        service, 
+        amountValue, 
+        { name: recipientName, phone: recipientPhone },
+        description
+      );
+      
+      if (transaction) {
+        setCompletedTransaction(transaction);
+        setShowReceipt(true);
+      }
+    } catch (error) {
+      console.error("Erreur lors du transfert:", error);
+      setError("Une erreur s'est produite lors du traitement du transfert");
     }
   };
 
-  const calculateFee = (amount: string): number => {
-    const value = parseInt(amount, 10);
-    if (isNaN(value) || value <= 0) return 0;
-    return Math.max(200, value * 0.015);
-  };
-
-  const transferFee = calculateFee(amount);
-  const totalAmount = parseInt(amount, 10) + transferFee;
-
-  const presetAmounts = [5000, 10000, 20000, 50000];
-
+  const presetAmounts = [10000, 20000, 50000, 100000];
+  
   const handleCloseReceipt = () => {
     setShowReceipt(false);
-    navigate("/");
+    // Redirigez l'utilisateur ou réinitialisez le formulaire si souhaité
+    // navigate("/");
   };
 
   return (
@@ -184,53 +146,34 @@ const TransferForm = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="contact">Destinataire</Label>
-          <Select value={contactId} onValueChange={handleContactChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionnez un contact ou créez un nouveau" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="new">Nouveau destinataire</SelectItem>
-              {user?.contacts.map((contact) => (
-                <SelectItem key={contact.id} value={contact.id}>
-                  {contact.name} ({contact.phone})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="recipient-name">Nom du bénéficiaire</Label>
+          <div className="relative">
+            <UserIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="recipient-name"
+              type="text"
+              placeholder="Ex: Jean Rakoto"
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
 
-        {(contactId === "new" || !contactId) && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="recipient-name">Nom du destinataire</Label>
-              <div className="relative">
-                <UserIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="recipient-name"
-                  value={recipientName}
-                  onChange={(e) => setRecipientName(e.target.value)}
-                  placeholder="Nom complet"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="recipient-phone">Numéro du destinataire</Label>
-              <div className="relative">
-                <SmartphoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="recipient-phone"
-                  value={recipientPhone}
-                  onChange={(e) => setRecipientPhone(e.target.value)}
-                  placeholder="Ex: 034 00 000 00"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-          </>
-        )}
+        <div className="space-y-2">
+          <Label htmlFor="recipient-phone">Numéro de téléphone du bénéficiaire</Label>
+          <div className="relative">
+            <SmartphoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="recipient-phone"
+              type="text"
+              placeholder="Ex: 034 00 000 00"
+              value={recipientPhone}
+              onChange={(e) => setRecipientPhone(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="amount-transfer">Montant du transfert</Label>
@@ -266,37 +209,23 @@ const TransferForm = () => {
 
         <div className="space-y-2">
           <Label htmlFor="description">Description (optionnel)</Label>
-          <Textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ajouter une note pour le destinataire"
-            className="resize-none"
-            rows={2}
-          />
-        </div>
-
-        {amount && !isNaN(parseInt(amount, 10)) && (
-          <div className="rounded-md bg-muted p-3 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Montant du transfert:</span>
-              <span>{parseInt(amount).toLocaleString()} Ar</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Frais de transfert:</span>
-              <span>{transferFee.toLocaleString()} Ar</span>
-            </div>
-            <div className="flex justify-between font-medium border-t pt-2">
-              <span>Total:</span>
-              <span>{isNaN(totalAmount) ? "0" : totalAmount.toLocaleString()} Ar</span>
-            </div>
+          <div className="relative">
+            <FileTextIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="description"
+              type="text"
+              placeholder="Ex: Paiement loyer"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="pl-10"
+            />
           </div>
-        )}
+        </div>
 
         <div className="rounded-md bg-muted p-3 flex items-start">
           <InfoIcon className="h-5 w-5 mr-2 text-muted-foreground shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground">
-            <p>Les frais de transfert sont de 1.5% du montant (minimum 200 Ar).</p>
+            <p>Des frais s'appliquent pour les transferts.</p>
             <p>Montant minimum: 1 000 Ar</p>
             <p>Pour un transfert, votre solde en espèces augmente et votre solde mobile money diminue.</p>
           </div>

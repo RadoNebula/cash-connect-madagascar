@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -49,10 +50,15 @@ const DepositForm = () => {
       return;
     }
 
-    const transaction = await depositMoney(service, amountValue, phoneNumber);
-    if (transaction) {
-      setCompletedTransaction(transaction);
-      setShowReceipt(true);
+    try {
+      const transaction = await depositMoney(service, amountValue, phoneNumber);
+      if (transaction) {
+        setCompletedTransaction(transaction);
+        setShowReceipt(true);
+      }
+    } catch (error) {
+      console.error("Erreur lors du dépôt:", error);
+      setError("Une erreur s'est produite lors du traitement du dépôt");
     }
   };
 
@@ -60,7 +66,8 @@ const DepositForm = () => {
   
   const handleCloseReceipt = () => {
     setShowReceipt(false);
-    navigate("/");
+    // Redirigez l'utilisateur ou réinitialisez le formulaire si souhaité
+    // navigate("/");
   };
 
   return (

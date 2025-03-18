@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,14 +7,12 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ServiceIcon } from "@/components/ServiceIcon";
 import { useTransactions, MobileMoneyService } from "@/context/TransactionContext";
-import { useAuth } from "@/context/AuthContext";
 import { InfoIcon, ArrowRightIcon, SmartphoneIcon } from "lucide-react";
 import { Receipt } from "@/components/Receipt";
 
 const WithdrawForm = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { withdrawMoney, isLoading, getServiceBalance, getCashBalance } = useTransactions();
+  const { withdrawMoney, isLoading } = useTransactions();
   const [service, setService] = useState<MobileMoneyService>("mvola");
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -30,18 +29,13 @@ const WithdrawForm = () => {
     e.preventDefault();
     setError("");
 
-    if (!user) {
-      setError("Vous devez être connecté pour effectuer cette opération");
-      return;
-    }
-
     if (!service) {
       setError("Veuillez sélectionner un service");
       return;
     }
 
     if (!phoneNumber) {
-      setError("Veuillez entrer le numéro de téléphone du client qui a transféré l'argent");
+      setError("Veuillez entrer le numéro de téléphone du client");
       return;
     }
 
@@ -56,35 +50,24 @@ const WithdrawForm = () => {
       return;
     }
 
-    const cashBalance = getCashBalance();
-    if (amountValue > cashBalance) {
-      setError(`Solde en espèces insuffisant. Votre solde est de ${cashBalance.toLocaleString()} Ar`);
-      return;
-    }
-
-    const fees = Math.max(300, amountValue * 0.02);
-    
-    const transaction = await withdrawMoney(service, amountValue, phoneNumber);
-    if (transaction) {
-      setCompletedTransaction(transaction);
-      setShowReceipt(true);
+    try {
+      const transaction = await withdrawMoney(service, amountValue, phoneNumber);
+      if (transaction) {
+        setCompletedTransaction(transaction);
+        setShowReceipt(true);
+      }
+    } catch (error) {
+      console.error("Erreur lors du retrait:", error);
+      setError("Une erreur s'est produite lors du traitement du retrait");
     }
   };
-
-  const calculateFee = (amount: string): number => {
-    const value = parseInt(amount, 10);
-    if (isNaN(value) || value <= 0) return 0;
-    return Math.max(300, value * 0.02);
-  };
-
-  const withdrawalFee = calculateFee(amount);
-  const totalAmount = parseInt(amount, 10) + withdrawalFee;
 
   const presetAmounts = [10000, 20000, 50000, 100000];
-
+  
   const handleCloseReceipt = () => {
     setShowReceipt(false);
-    navigate("/");
+    // Redirigez l'utilisateur ou réinitialisez le formulaire si souhaité
+    // navigate("/");
   };
 
   return (
@@ -194,27 +177,10 @@ const WithdrawForm = () => {
           </div>
         </div>
 
-        {amount && !isNaN(parseInt(amount, 10)) && (
-          <div className="rounded-md bg-muted p-3 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Montant du retrait:</span>
-              <span>{parseInt(amount).toLocaleString()} Ar</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Frais de retrait:</span>
-              <span>{withdrawalFee.toLocaleString()} Ar</span>
-            </div>
-            <div className="flex justify-between font-medium border-t pt-2">
-              <span>Total:</span>
-              <span>{isNaN(totalAmount) ? "0" : totalAmount.toLocaleString()} Ar</span>
-            </div>
-          </div>
-        )}
-
         <div className="rounded-md bg-muted p-3 flex items-start">
           <InfoIcon className="h-5 w-5 mr-2 text-muted-foreground shrink-0 mt-0.5" />
           <div className="text-sm text-muted-foreground">
-            <p>Les frais de retrait sont de 2% du montant (minimum 300 Ar).</p>
+            <p>Des frais s'appliquent pour les retraits.</p>
             <p>Montant minimum: 1 000 Ar</p>
             <p>Pour un retrait, votre solde en espèces diminue et votre solde mobile money augmente.</p>
           </div>
