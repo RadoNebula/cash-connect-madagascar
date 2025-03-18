@@ -21,10 +21,13 @@ export const Logo = ({ className, size = "md", showImage = true }: LogoProps) =>
         <img 
           src="/lovable-uploads/70cc2e53-7cec-4f0a-a459-b680625fb32c.png" 
           alt="Kioska Nakà Logo" 
-          className="h-10 mr-2"
+          className={cn(
+            "mr-2",
+            size === "sm" ? "h-8" : size === "md" ? "h-10" : "h-14"
+          )}
         />
       )}
-      <span className="text-primary sr-only">Kioska Nakà</span>
+      <span className="text-kioska-navy">Kioska Nakà</span>
     </div>
   );
 };

@@ -7,7 +7,8 @@ import {
   HistoryIcon, 
   UserIcon, 
   LogOutIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  SettingsIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function AppShell({ children }: AppShellProps) {
     { icon: WalletIcon, label: "Transactions", path: "/transactions" },
     { icon: HistoryIcon, label: "Historique", path: "/history" },
     { icon: UserIcon, label: "Profil", path: "/profile" },
+    { icon: SettingsIcon, label: "Paramètres", path: "/settings" },
   ];
 
   const handleNavigation = (path: string) => {
@@ -62,11 +64,17 @@ export function AppShell({ children }: AppShellProps) {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+      <main className="flex-1 overflow-auto p-4 md:p-6">
+        {/* Logo display at the top of content area on every page */}
+        <div className="mb-6 flex justify-center">
+          <Logo showImage={true} size="lg" className="text-kioska-navy" />
+        </div>
+        {children}
+      </main>
 
       {/* Bottom navigation bar (for mobile) */}
       <div className="sticky bottom-0 z-30 md:hidden">
-        <nav className="grid grid-cols-4 items-center gap-1 border-t bg-background p-2">
+        <nav className="grid grid-cols-5 items-center gap-1 border-t bg-background p-2">
           {navItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
