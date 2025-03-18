@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -179,8 +178,9 @@ export const Receipt = ({ transaction, open, onClose }: ReceiptProps) => {
       yPos += 4;
       doc.text("Service opéré par " + (user?.name || ""), 29, yPos, { align: 'center' });
       
-      // Save the PDF
-      doc.save(`kioska-naka-receipt-${transaction.id.substring(0, 6)}.pdf`);
+      // Ouvrir le PDF directement dans le navigateur au lieu de le télécharger
+      const pdfOutput = doc.output('bloburl');
+      window.open(pdfOutput, '_blank');
     } catch (error) {
       console.error("Error printing receipt:", error);
     } finally {
