@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { 
@@ -49,6 +49,25 @@ const Settings = () => {
   const [showContact, setShowContact] = useState(user?.receiptSettings?.showContact !== false);
   const [showCompanyInfo, setShowCompanyInfo] = useState(user?.receiptSettings?.showCompanyInfo !== false);
   const [footerText, setFooterText] = useState(user?.receiptSettings?.footerText || "Merci de votre confiance!");
+
+  // Update form values when user changes
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setPhone(user.phone || "");
+      
+      setCompanyName(user.company?.name || "");
+      setCompanyAddress(user.company?.address || "");
+      setCompanyPhone(user.company?.phone || "");
+      setCompanyEmail(user.company?.email || "");
+      
+      setShowLogo(user.receiptSettings?.showLogo !== false);
+      setShowContact(user.receiptSettings?.showContact !== false);
+      setShowCompanyInfo(user.receiptSettings?.showCompanyInfo !== false);
+      setFooterText(user.receiptSettings?.footerText || "Merci de votre confiance!");
+    }
+  }, [user]);
 
   if (!user) {
     navigate("/login");

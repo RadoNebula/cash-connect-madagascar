@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { useAuth } from './AuthContext';
+import { supabase } from "@/integrations/supabase/client";
 
 export type TransactionType = 'deposit' | 'withdrawal' | 'transfer';
 export type MobileMoneyService = 'mvola' | 'orangeMoney' | 'airtelMoney';
@@ -51,35 +52,6 @@ type TransactionContextType = {
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
-// Define the missing generateMockTransactions function
-const generateMockTransactions = (): Transaction[] => {
-  const services: MobileMoneyService[] = ['mvola', 'orangeMoney', 'airtelMoney'];
-  const types: TransactionType[] = ['deposit', 'withdrawal', 'transfer'];
-  const statuses: ('completed' | 'pending' | 'failed')[] = ['completed', 'pending', 'failed'];
-  
-  return Array(5).fill(null).map((_, index) => {
-    const type = types[Math.floor(Math.random() * types.length)];
-    const service = services[Math.floor(Math.random() * services.length)];
-    const amount = Math.floor(Math.random() * 900000) + 100000; // Between 100,000 and 1,000,000
-    
-    return {
-      id: `mock-tx-${index + 1}`,
-      type,
-      service,
-      amount,
-      fees: type === 'deposit' ? 0 : Math.floor(amount * 0.015),
-      phoneNumber: type !== 'transfer' ? `03${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10000000).toString().padStart(7, '0')}` : undefined,
-      recipient: type === 'transfer' ? {
-        name: `Recipient ${index + 1}`,
-        phone: `03${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10000000).toString().padStart(7, '0')}`
-      } : undefined,
-      description: type === 'transfer' ? `Mock transfer ${index + 1}` : undefined,
-      date: new Date(Date.now() - Math.floor(Math.random() * 604800000)), // Within the last week
-      status: statuses[Math.floor(Math.random() * statuses.length)]
-    };
-  });
-};
-
 export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balances, setBalances] = useState<SessionBalances>({
@@ -92,43 +64,80 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
+  // Fetch transactions and active session from Supabase
   useEffect(() => {
-    const storedTransactions = localStorage.getItem('cashpoint_transactions');
-    const storedBalances = localStorage.getItem('cashpoint_balances');
-    const storedSessionStarted = localStorage.getItem('cashpoint_session_started');
-    
-    const timer = setTimeout(() => {
-      if (storedTransactions) {
-        const parsedTransactions = JSON.parse(storedTransactions) as Transaction[];
-        parsedTransactions.forEach(tx => {
-          tx.date = new Date(tx.date);
-        });
-        setTransactions(parsedTransactions);
-      } else {
-        setTransactions(generateMockTransactions());
-      }
-
-      if (storedBalances) {
-        setBalances(JSON.parse(storedBalances));
-      }
-
-      if (storedSessionStarted === 'true') {
-        setSessionStarted(true);
+    const fetchData = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
       }
       
-      setIsLoading(false);
-    }, 1000);
+      setIsLoading(true);
+      
+      try {
+        // Fetch transactions
+        const { data: transactionsData, error: transactionsError } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false });
 
-    return () => clearTimeout(timer);
-  }, []);
+        if (transactionsError) throw transactionsError;
 
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('cashpoint_transactions', JSON.stringify(transactions));
-      localStorage.setItem('cashpoint_balances', JSON.stringify(balances));
-      localStorage.setItem('cashpoint_session_started', sessionStarted.toString());
-    }
-  }, [transactions, balances, sessionStarted, isLoading]);
+        // Format the transactions from Supabase to match the Transaction type
+        const formattedTransactions: Transaction[] = transactionsData.map(tx => ({
+          id: tx.id,
+          type: tx.type as TransactionType,
+          service: tx.service as MobileMoneyService,
+          amount: Number(tx.amount),
+          fees: Number(tx.fees),
+          phoneNumber: tx.phone_number,
+          recipient: tx.recipient_name && tx.recipient_phone ? {
+            name: tx.recipient_name,
+            phone: tx.recipient_phone,
+          } : undefined,
+          description: tx.description,
+          date: new Date(tx.date),
+          status: tx.status as 'completed' | 'pending' | 'failed',
+        }));
+
+        setTransactions(formattedTransactions);
+
+        // Fetch active session balance
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('session_balances')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (sessionError && sessionError.code !== 'PGRST116') {
+          throw sessionError;
+        }
+
+        if (sessionData) {
+          setBalances({
+            cash: Number(sessionData.cash),
+            mvola: Number(sessionData.mvola),
+            orangeMoney: Number(sessionData.orange_money),
+            airtelMoney: Number(sessionData.airtel_money)
+          });
+          setSessionStarted(true);
+        } else {
+          setSessionStarted(false);
+        }
+      } catch (error) {
+        console.error('Error fetching transaction data:', error);
+        toast.error("Erreur lors du chargement des transactions");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
 
   const calculateFees = (type: TransactionType, amount: number): number => {
     if (type === 'deposit') return 0;
@@ -138,6 +147,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const startSession = async (initialBalances: SessionBalances): Promise<boolean> => {
+    if (!user) {
+      toast.error("Veuillez vous connecter pour effectuer cette opération");
+      return false;
+    }
+    
     if (sessionStarted) {
       toast.error("Une session est déjà en cours");
       return false;
@@ -146,11 +160,27 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setIsLoading(true);
     
     try {
+      // Insert new session balances in Supabase
+      const { data, error } = await supabase
+        .from('session_balances')
+        .insert({
+          user_id: user.id,
+          cash: initialBalances.cash,
+          mvola: initialBalances.mvola,
+          orange_money: initialBalances.orangeMoney,
+          airtel_money: initialBalances.airtelMoney,
+          is_active: true
+        })
+        .select();
+
+      if (error) throw error;
+      
       setBalances(initialBalances);
       setSessionStarted(true);
       toast.success("Session démarrée avec succès!");
       return true;
     } catch (error) {
+      console.error('Error starting session:', error);
       toast.error("Erreur lors du démarrage de la session");
       return false;
     } finally {
@@ -180,8 +210,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setIsLoading(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       if (!phoneNumber.trim()) {
         throw new Error("Le numéro de téléphone est requis");
       }
@@ -196,14 +224,46 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       const fees = calculateFees('deposit', amount);
       
+      // Insert transaction in Supabase
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'deposit',
+          service,
+          amount,
+          fees,
+          phone_number: phoneNumber,
+          date: new Date().toISOString(),
+          status: 'completed'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Update session balances
+      const { error: updateError } = await supabase
+        .from('session_balances')
+        .update({
+          cash: updatedBalances.cash,
+          mvola: service === 'mvola' ? updatedBalances.mvola : balances.mvola,
+          orange_money: service === 'orangeMoney' ? updatedBalances.orangeMoney : balances.orangeMoney,
+          airtel_money: service === 'airtelMoney' ? updatedBalances.airtelMoney : balances.airtelMoney
+        })
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (updateError) throw updateError;
+      
       const newTransaction: Transaction = {
-        id: `tx-${Date.now()}`,
+        id: data.id,
         type: 'deposit',
         service,
         amount,
         fees,
         phoneNumber,
-        date: new Date(),
+        date: new Date(data.date),
         status: 'completed',
       };
       
@@ -237,8 +297,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setIsLoading(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       if (!phoneNumber.trim()) {
         throw new Error("Le numéro de téléphone est requis");
       }
@@ -254,14 +312,46 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       updatedBalances.cash -= amount;
       updatedBalances[service] += amount;
       
+      // Insert transaction in Supabase
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'withdrawal',
+          service,
+          amount,
+          fees,
+          phone_number: phoneNumber,
+          date: new Date().toISOString(),
+          status: 'completed'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Update session balances
+      const { error: updateError } = await supabase
+        .from('session_balances')
+        .update({
+          cash: updatedBalances.cash,
+          mvola: service === 'mvola' ? updatedBalances.mvola : balances.mvola,
+          orange_money: service === 'orangeMoney' ? updatedBalances.orangeMoney : balances.orangeMoney,
+          airtel_money: service === 'airtelMoney' ? updatedBalances.airtelMoney : balances.airtelMoney
+        })
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (updateError) throw updateError;
+      
       const newTransaction: Transaction = {
-        id: `tx-${Date.now()}`,
+        id: data.id,
         type: 'withdrawal',
         service,
         amount,
         fees,
         phoneNumber,
-        date: new Date(),
+        date: new Date(data.date),
         status: 'completed',
       };
       
@@ -300,8 +390,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setIsLoading(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
       const fees = calculateFees('transfer', amount);
       
       const updatedBalances = { ...balances };
@@ -313,15 +401,49 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       updatedBalances.cash += amount;
       updatedBalances[service] -= amount;
       
+      // Insert transaction in Supabase
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'transfer',
+          service,
+          amount,
+          fees,
+          recipient_name: recipient.name,
+          recipient_phone: recipient.phone,
+          description,
+          date: new Date().toISOString(),
+          status: 'completed'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Update session balances
+      const { error: updateError } = await supabase
+        .from('session_balances')
+        .update({
+          cash: updatedBalances.cash,
+          mvola: service === 'mvola' ? updatedBalances.mvola : balances.mvola,
+          orange_money: service === 'orangeMoney' ? updatedBalances.orangeMoney : balances.orangeMoney,
+          airtel_money: service === 'airtelMoney' ? updatedBalances.airtelMoney : balances.airtelMoney
+        })
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (updateError) throw updateError;
+      
       const newTransaction: Transaction = {
-        id: `tx-${Date.now()}`,
+        id: data.id,
         type: 'transfer',
         service,
         amount,
         fees,
         recipient,
         description,
-        date: new Date(),
+        date: new Date(data.date),
         status: 'completed',
       };
       

@@ -1,31 +1,97 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 import { PhoneIcon, UserIcon, EyeIcon, EyeOffIcon, KeyIcon, Save } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setPhone(user.phone || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Implementation will be added later
-    console.log("Profile update requested", { name, phone });
+    if (!user) return;
+    
+    setLoading(true);
+    
+    try {
+      const success = await updateUser({
+        name,
+        email,
+        phone: user.phone // Not allowing phone update as it's used for login
+      });
+      
+      if (success) {
+        toast.success("Profil mis à jour avec succès");
+      } else {
+        toast.error("Erreur lors de la mise à jour du profil");
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error("Une erreur s'est produite");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleChangePin = (e: React.FormEvent) => {
+  const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Implementation will be added later
-    console.log("PIN change requested");
+    
+    if (!currentPin || !newPin || !confirmPin) {
+      toast.error("Veuillez remplir tous les champs");
+      return;
+    }
+    
+    if (newPin !== confirmPin) {
+      toast.error("Les nouveaux PIN ne correspondent pas");
+      return;
+    }
+    
+    if (newPin.length < 4) {
+      toast.error("Le PIN doit contenir au moins 4 caractères");
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Update password in Supabase Auth
+      const { error } = await supabase.auth.updateUser({
+        password: newPin
+      });
+      
+      if (error) throw error;
+      
+      toast.success("PIN mis à jour avec succès");
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+    } catch (error) {
+      console.error('Error changing PIN:', error);
+      toast.error("Erreur lors de la mise à jour du PIN");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!user) return null;
@@ -59,6 +125,7 @@ const Profile = () => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="pl-10"
+                      disabled={loading}
                     />
                   </div>
                 </div>
@@ -70,16 +137,39 @@ const Profile = () => {
                       type="text"
                       placeholder="Numéro de téléphone"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
                       className="pl-10"
                       disabled
                     />
                   </div>
                 </div>
+                
+                <div className="space-y-2">
+                  <div className="relative">
+                    <UserIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
 
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={loading}>
                   <Save className="mr-2 h-4 w-4" />
                   Enregistrer les modifications
+                </Button>
+                
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full mt-4" 
+                  onClick={logout}
+                  disabled={loading}
+                >
+                  Se déconnecter
                 </Button>
               </form>
             </CardContent>
@@ -103,6 +193,7 @@ const Profile = () => {
                       value={currentPin}
                       onChange={(e) => setCurrentPin(e.target.value)}
                       className="pl-10"
+                      disabled={loading}
                     />
                   </div>
                 </div>
@@ -116,6 +207,7 @@ const Profile = () => {
                       value={newPin}
                       onChange={(e) => setNewPin(e.target.value)}
                       className="pl-10 pr-10"
+                      disabled={loading}
                     />
                     <button
                       type="button"
@@ -140,11 +232,12 @@ const Profile = () => {
                       value={confirmPin}
                       onChange={(e) => setConfirmPin(e.target.value)}
                       className="pl-10"
+                      disabled={loading}
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={loading}>
                   Changer le code PIN
                 </Button>
               </form>

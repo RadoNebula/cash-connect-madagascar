@@ -1,6 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 export type User = {
   id: string;
@@ -49,7 +51,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data for demonstration
+// Mock user data for initial development before Supabase integration
 const mockUser: User = {
   id: "user-1",
   name: "Rakoto Jean",
@@ -100,35 +102,132 @@ const mockUser: User = {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
 
-  // Simulate loading user from local storage on app start
+  // Fetch user data from Supabase and update state
+  const fetchUserData = async (userId: string) => {
+    try {
+      // Fetch user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Fetch company settings
+      const { data: companyData, error: companyError } = await supabase
+        .from('company_settings')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (companyError && companyError.code !== 'PGRST116') throw companyError;
+
+      // Fetch receipt settings
+      const { data: receiptData, error: receiptError } = await supabase
+        .from('receipt_settings')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (receiptError && receiptError.code !== 'PGRST116') throw receiptError;
+
+      // Construct user object
+      const userData: User = {
+        id: userId,
+        name: profileData.name || '',
+        phone: profileData.phone || '',
+        email: profileData.email || '',
+        balances: {
+          mvola: 0,
+          orangeMoney: 0,
+          airtelMoney: 0,
+        },
+        contacts: [], // We'll implement contacts later
+        company: companyData ? {
+          name: companyData.name || '',
+          address: companyData.address || '',
+          phone: companyData.phone || '',
+          email: companyData.email || '',
+        } : undefined,
+        receiptSettings: receiptData ? {
+          showLogo: receiptData.show_logo,
+          showContact: receiptData.show_contact,
+          showCompanyInfo: receiptData.show_company_info,
+          footerText: receiptData.footer_text || 'Merci de votre confiance!',
+        } : undefined,
+      };
+
+      setUser(userData);
+      return userData;
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      toast.error("Erreur lors du chargement des données utilisateur");
+      return null;
+    }
+  };
+
+  // Listen for authentication state changes
   useEffect(() => {
-    const storedUser = localStorage.getItem('cashpoint_user');
-    
-    // Simulate network delay
-    const timer = setTimeout(() => {
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setIsLoading(true);
+        
+        if (session?.user) {
+          setSupabaseUser(session.user);
+          await fetchUserData(session.user.id);
+        } else {
+          setSupabaseUser(null);
+          setUser(null);
+        }
+        
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }, 1000);
+    );
 
-    return () => clearTimeout(timer);
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        setSupabaseUser(session.user);
+        await fetchUserData(session.user.id);
+      }
+      
+      setIsLoading(false);
+    };
+    
+    checkUser();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (phone: string, pin: string): Promise<boolean> => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Use phone as email for authentication with Supabase
+      // This is a simplification - in a real app, you might want to use phone auth
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: `${phone}@example.com`, // Using phone as email
+        password: pin,
+      });
       
-      // For demo, we'll accept any phone/pin and return mock data
-      setUser(mockUser);
-      localStorage.setItem('cashpoint_user', JSON.stringify(mockUser));
-      toast.success("Connexion réussie!");
-      return true;
+      if (error) throw error;
+      
+      if (data.user) {
+        await fetchUserData(data.user.id);
+        toast.success("Connexion réussie!");
+        return true;
+      }
+      
+      return false;
     } catch (error) {
+      console.error('Login error:', error);
       toast.error("Erreur de connexion. Veuillez réessayer.");
       return false;
     } finally {
@@ -140,22 +239,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Sign up with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email: `${phone}@example.com`, // Using phone as email
+        password: pin,
+        options: {
+          data: {
+            name,
+            phone,
+          },
+        },
+      });
       
-      // Create new user based on mock data but with provided details
-      const newUser: User = {
-        ...mockUser,
-        id: `user-${Date.now()}`,
-        name,
-        phone,
-      };
+      if (error) throw error;
       
-      setUser(newUser);
-      localStorage.setItem('cashpoint_user', JSON.stringify(newUser));
-      toast.success("Compte créé avec succès!");
-      return true;
+      if (data.user) {
+        toast.success("Compte créé avec succès!");
+        return true;
+      }
+      
+      return false;
     } catch (error) {
+      console.error('Signup error:', error);
       toast.error("Erreur lors de la création du compte. Veuillez réessayer.");
       return false;
     } finally {
@@ -163,10 +268,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('cashpoint_user');
-    toast.success("Déconnexion réussie");
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('Logout error:', error);
+      toast.error("Erreur lors de la déconnexion");
+    } else {
+      setUser(null);
+      toast.success("Déconnexion réussie");
+    }
   };
 
   const addContact = (contact: Omit<Contact, 'id'>) => {
@@ -183,7 +294,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     setUser(updatedUser);
-    localStorage.setItem('cashpoint_user', JSON.stringify(updatedUser));
     toast.success(`Contact ${contact.name} ajouté!`);
   };
 
@@ -200,7 +310,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     setUser(updatedUser);
-    localStorage.setItem('cashpoint_user', JSON.stringify(updatedUser));
     toast.success("Contact mis à jour!");
   };
 
@@ -215,24 +324,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     setUser(updatedUser);
-    localStorage.setItem('cashpoint_user', JSON.stringify(updatedUser));
     toast.success("Contact supprimé!");
   };
 
   const updateUser = async (updates: Partial<User>): Promise<boolean> => {
     try {
-      if (!user) return false;
+      if (!user || !supabaseUser) return false;
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Update profile information if changed
+      if (updates.name !== undefined || updates.email !== undefined || updates.phone !== undefined) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            name: updates.name || user.name,
+            email: updates.email || user.email,
+            phone: updates.phone || user.phone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+
+        if (profileError) throw profileError;
+      }
+
+      // Update company settings if changed
+      if (updates.company) {
+        const { error: companyError } = await supabase
+          .from('company_settings')
+          .update({
+            name: updates.company.name,
+            address: updates.company.address,
+            phone: updates.company.phone,
+            email: updates.company.email,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+
+        if (companyError) throw companyError;
+      }
+
+      // Update receipt settings if changed
+      if (updates.receiptSettings) {
+        const { error: receiptError } = await supabase
+          .from('receipt_settings')
+          .update({
+            show_logo: updates.receiptSettings.showLogo,
+            show_contact: updates.receiptSettings.showContact,
+            show_company_info: updates.receiptSettings.showCompanyInfo,
+            footer_text: updates.receiptSettings.footerText,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+
+        if (receiptError) throw receiptError;
+      }
       
+      // Update local user state
       const updatedUser: User = {
         ...user,
         ...updates,
       };
       
       setUser(updatedUser);
-      localStorage.setItem('cashpoint_user', JSON.stringify(updatedUser));
       return true;
     } catch (error) {
       console.error("Error updating user:", error);

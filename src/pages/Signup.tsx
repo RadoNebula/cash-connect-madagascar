@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
+import { toast } from "sonner";
 
 const Signup = () => {
   const [name, setName] = useState("");

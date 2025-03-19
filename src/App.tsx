@@ -8,8 +8,13 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import TransactionsPage from "./pages/TransactionsPage";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 import { useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
+import { TransactionProvider } from "./context/TransactionContext";
 
 const queryClient = new QueryClient();
 
@@ -30,34 +35,58 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const AppRoutes = () => {
+  return (
+    <Routes>
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Index />
+        </ProtectedRoute>
+      } />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/transactions" element={
+        <ProtectedRoute>
+          <TransactionsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/transactions/:type" element={
+        <ProtectedRoute>
+          <TransactionsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <Settings />
+        </ProtectedRoute>
+      } />
+      <Route path="/history" element={
+        <ProtectedRoute>
+          <History />
+        </ProtectedRoute>
+      } />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Index />
-            </ProtectedRoute>
-          } />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/transactions" element={
-            <ProtectedRoute>
-              <TransactionsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/transactions/:type" element={
-            <ProtectedRoute>
-              <TransactionsPage />
-            </ProtectedRoute>
-          } />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <TransactionProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TransactionProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

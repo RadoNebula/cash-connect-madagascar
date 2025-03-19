@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
+import { toast } from "sonner";
 
 const Login = () => {
   const [phone, setPhone] = useState("");
@@ -18,6 +19,7 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (phone.trim() === "" || pin.trim() === "") {
+      toast.error("Veuillez remplir tous les champs");
       return;
     }
 

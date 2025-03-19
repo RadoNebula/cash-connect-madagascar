@@ -9,7 +9,165 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      company_settings: {
+        Row: {
+          address: string | null
+          email: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          email?: string | null
+          id: string
+          name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          name: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      receipt_settings: {
+        Row: {
+          footer_text: string | null
+          id: string
+          show_company_info: boolean | null
+          show_contact: boolean | null
+          show_logo: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          footer_text?: string | null
+          id: string
+          show_company_info?: boolean | null
+          show_contact?: boolean | null
+          show_logo?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          footer_text?: string | null
+          id?: string
+          show_company_info?: boolean | null
+          show_contact?: boolean | null
+          show_logo?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      session_balances: {
+        Row: {
+          airtel_money: number
+          cash: number
+          created_at: string
+          id: string
+          is_active: boolean
+          mvola: number
+          orange_money: number
+          user_id: string
+        }
+        Insert: {
+          airtel_money?: number
+          cash?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mvola?: number
+          orange_money?: number
+          user_id: string
+        }
+        Update: {
+          airtel_money?: number
+          cash?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mvola?: number
+          orange_money?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          date: string
+          description: string | null
+          fees: number
+          id: string
+          phone_number: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          service: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          date?: string
+          description?: string | null
+          fees?: number
+          id?: string
+          phone_number?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          service: string
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          date?: string
+          description?: string | null
+          fees?: number
+          id?: string
+          phone_number?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          service?: string
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

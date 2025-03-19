@@ -1,8 +1,7 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTransactions, Transaction, TransactionType } from "@/context/TransactionContext";
@@ -13,6 +12,14 @@ const History = () => {
   const { transactions } = useTransactions();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<TransactionType | "all">("all");
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    // Just checking if transactions are loaded
+    if (transactions.length >= 0) {
+      setIsLoading(false);
+    }
+  }, [transactions]);
   
   // Sort transactions by date (newest first)
   const sortedTransactions = [...transactions].sort(
@@ -22,9 +29,10 @@ const History = () => {
   // Filter transactions based on search term and filter type
   const filteredTransactions = sortedTransactions.filter(transaction => {
     const matchesSearch = 
-      transaction.recipient?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.recipient?.phone?.includes(searchTerm) ||
-      transaction.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      (transaction.recipient?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      (transaction.recipient?.phone?.includes(searchTerm) || false) ||
+      (transaction.phoneNumber?.includes(searchTerm) || false) ||
+      (transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
     
     const matchesType = filterType === "all" || transaction.type === filterType;
     
@@ -98,16 +106,25 @@ const History = () => {
           </CardHeader>
           
           <CardContent>
-            {filteredTransactions.length === 0 ? (
+            {isLoading ? (
+              <div className="py-8 text-center text-muted-foreground">
+                Chargement des transactions...
+              </div>
+            ) : filteredTransactions.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 Aucune transaction trouvée
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-4">
                 {filteredTransactions.map((transaction) => (
-                  <div key={transaction.id} className="transaction-item">
+                  <div 
+                    key={transaction.id} 
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
                     <div className="flex items-center gap-3">
-                      <TransactionIcon type={transaction.type} />
+                      <div className="p-2 rounded-full bg-muted">
+                        <TransactionIcon type={transaction.type} />
+                      </div>
                       <div>
                         <div className="font-medium">{getTransactionTitle(transaction)}</div>
                         <div className="text-sm text-muted-foreground flex items-center gap-1">
@@ -118,6 +135,11 @@ const History = () => {
                           />
                           <span className="text-xs">{formatDate(transaction.date)}</span>
                         </div>
+                        {transaction.phoneNumber && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Téléphone: {transaction.phoneNumber}
+                          </div>
+                        )}
                         {transaction.description && (
                           <div className="text-xs text-muted-foreground mt-1">
                             {transaction.description}
