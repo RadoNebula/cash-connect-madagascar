@@ -211,14 +211,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       // Format the phone number as a valid email for Supabase authentication
-      const email = `user_${phone.replace(/\+|\s/g, '')}@cashpoint.app`;
+      const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: pin,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Login error:', error);
+        
+        // Afficher un message d'erreur spécifique en fonction du code d'erreur
+        if (error.message === "Email not confirmed") {
+          toast.error("Votre compte n'a pas été confirmé. Veuillez vérifier votre email.");
+          return false;
+        } else if (error.message === "Invalid login credentials") {
+          toast.error("Numéro de téléphone ou code PIN incorrect.");
+          return false;
+        }
+        
+        throw error;
+      }
       
       if (data.user) {
         await fetchUserData(data.user.id);
@@ -241,7 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       // Format the phone number as a valid email for Supabase authentication
-      const email = `user_${phone.replace(/\+|\s/g, '')}@cashpoint.app`;
+      const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       const { data, error } = await supabase.auth.signUp({
         email: email,
@@ -256,11 +269,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error('Signup error:', error);
+        
+        // Afficher un message d'erreur spécifique en fonction du code d'erreur
+        if (error.message.includes("already registered")) {
+          toast.error("Ce numéro de téléphone est déjà utilisé.");
+          return false;
+        }
+        
         throw error;
       }
       
       if (data.user) {
-        toast.success("Compte créé avec succès!");
+        // Vérifier si l'email a besoin d'être confirmé
+        if (data.user.identities && data.user.identities.length > 0) {
+          const emailConfirmed = data.user.identities[0].identity_data.email_verified;
+          
+          if (emailConfirmed) {
+            toast.success("Compte créé avec succès!");
+          } else {
+            toast.success("Compte créé! Vous pourrez vous connecter sans confirmation d'email.");
+          }
+        } else {
+          toast.success("Compte créé avec succès!");
+        }
         return true;
       }
       
