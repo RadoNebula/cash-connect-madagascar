@@ -210,10 +210,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Use phone as email for authentication with Supabase
-      // This is a simplification - in a real app, you might want to use phone auth
+      // Format the phone number as a valid email for Supabase authentication
+      const email = `user_${phone.replace(/\+|\s/g, '')}@cashpoint.app`;
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: `${phone}@example.com`, // Using phone as email
+        email: email,
         password: pin,
       });
       
@@ -239,9 +240,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Sign up with Supabase
+      // Format the phone number as a valid email for Supabase authentication
+      const email = `user_${phone.replace(/\+|\s/g, '')}@cashpoint.app`;
+      
       const { data, error } = await supabase.auth.signUp({
-        email: `${phone}@example.com`, // Using phone as email
+        email: email,
         password: pin,
         options: {
           data: {
@@ -251,7 +254,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Signup error:', error);
+        throw error;
+      }
       
       if (data.user) {
         toast.success("Compte créé avec succès!");

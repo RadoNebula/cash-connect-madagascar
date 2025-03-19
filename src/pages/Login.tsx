@@ -13,24 +13,35 @@ const Login = () => {
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [error, setError] = useState("");
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    
     if (phone.trim() === "" || pin.trim() === "") {
-      toast.error("Veuillez remplir tous les champs");
+      setError("Veuillez remplir tous les champs");
       return;
     }
 
     if (pin.length < 6) {
-      toast.error("Le code PIN doit contenir au moins 6 chiffres");
+      setError("Le code PIN doit contenir au moins 6 chiffres");
       return;
     }
 
-    const success = await login(phone, pin);
-    if (success) {
-      navigate("/");
+    // Supprimer les caractères spéciaux du numéro de téléphone
+    const formattedPhone = phone.replace(/\+|\s|-/g, '');
+
+    try {
+      const success = await login(formattedPhone, pin);
+      if (success) {
+        navigate("/");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Une erreur s'est produite lors de la connexion");
     }
   };
 
@@ -46,6 +57,12 @@ const Login = () => {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {error && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            
             <div className="space-y-2">
               <div className="relative">
                 <PhoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />

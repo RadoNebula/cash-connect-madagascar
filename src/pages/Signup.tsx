@@ -38,9 +38,17 @@ const Signup = () => {
       return;
     }
 
-    const success = await signup(name, phone, pin);
-    if (success) {
-      navigate("/");
+    // Supprimer les caractères spéciaux du numéro de téléphone
+    const formattedPhone = phone.replace(/\+|\s|-/g, '');
+
+    try {
+      const success = await signup(name, formattedPhone, pin);
+      if (success) {
+        navigate("/");
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Une erreur s'est produite lors de la création du compte");
     }
   };
 
