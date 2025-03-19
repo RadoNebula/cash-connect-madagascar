@@ -23,6 +23,11 @@ const Login = () => {
       return;
     }
 
+    if (pin.length < 6) {
+      toast.error("Le code PIN doit contenir au moins 6 chiffres");
+      return;
+    }
+
     const success = await login(phone, pin);
     if (success) {
       navigate("/");
@@ -59,7 +64,7 @@ const Login = () => {
                 <KeyIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   type={showPin ? "text" : "password"}
-                  placeholder="Code PIN"
+                  placeholder="Code PIN (au moins 6 chiffres)"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   className="pl-10 pr-10"
