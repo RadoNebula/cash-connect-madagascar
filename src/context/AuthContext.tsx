@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,7 +40,7 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   login: (phone: string, pin: string) => Promise<boolean>;
-  signup: (name: string, phone: string, pin: string) => Promise<boolean>;
+  signup: (name: string, phone: string, pin: string, email?: string) => Promise<boolean>;
   logout: () => void;
   addContact: (contact: Omit<Contact, 'id'>) => void;
   updateContact: (id: string, updates: Partial<Omit<Contact, 'id'>>) => void;
@@ -223,7 +222,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Afficher un message d'erreur spécifique en fonction du code d'erreur
         if (error.message === "Email not confirmed") {
-          toast.error("Votre compte n'a pas été confirmé. Veuillez vérifier votre email.");
+          toast.error("Votre compte n'a pas été confirmé. Utilisez le bouton 'Connexion automatique'.");
           return false;
         } else if (error.message === "Invalid login credentials") {
           toast.error("Numéro de téléphone ou code PIN incorrect.");
@@ -249,21 +248,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (name: string, phone: string, pin: string): Promise<boolean> => {
+  const signup = async (name: string, phone: string, pin: string, email?: string): Promise<boolean> => {
     setIsLoading(true);
     
     try {
       // Format the phone number as a valid email for Supabase authentication
-      const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
+      const autoEmail = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       const { data, error } = await supabase.auth.signUp({
-        email: email,
+        email: email || autoEmail,
         password: pin,
         options: {
           data: {
             name,
             phone,
+            email: email,
           },
+          emailRedirectTo: window.location.origin,
         },
       });
       
@@ -286,8 +287,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (emailConfirmed) {
             toast.success("Compte créé avec succès!");
+          } else if (email) {
+            toast.success("Compte créé! Veuillez vérifier votre email pour confirmer votre compte.");
           } else {
-            toast.success("Compte créé! Vous pourrez vous connecter sans confirmation d'email.");
+            toast.success("Compte créé! Vous pourrez vous connecter en utilisant le bouton 'Connexion automatique'.");
           }
         } else {
           toast.success("Compte créé avec succès!");

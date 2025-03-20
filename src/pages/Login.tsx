@@ -35,23 +35,11 @@ const Login = () => {
 
     // Supprimer les caractères spéciaux du numéro de téléphone
     const formattedPhone = phone.replace(/\+|\s|-/g, '');
-    const email = `user_${formattedPhone}@cashpoint.app`;
 
     try {
       const success = await login(formattedPhone, pin);
       if (success) {
         navigate("/");
-      } else {
-        // Si la connexion échoue, vérifier si c'est à cause d'un email non confirmé
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email: email,
-          password: pin,
-        });
-
-        if (signInError && signInError.message === "Email not confirmed") {
-          // Proposer de confirmer manuellement le compte
-          setError("Votre compte n'est pas confirmé. Voulez-vous le confirmer maintenant?");
-        }
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -68,30 +56,40 @@ const Login = () => {
       const formattedPhone = phone.replace(/\+|\s|-/g, '');
       const email = `user_${formattedPhone}@cashpoint.app`;
 
-      // Envoyer à nouveau un email de confirmation
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+      // Tentative de connexion directe
+      toast.info("Tentative de connexion directe...");
       
-      if (resetError) {
-        console.error("Error requesting password reset:", resetError);
-        setError("Erreur lors de la tentative de confirmation du compte");
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: email,
+        password: pin,
+        options: {
+          data: {
+            phone: formattedPhone
+          }
+        }
+      });
+      
+      if (signUpError) {
+        console.error("Sign up attempt error:", signUpError);
+        
+        // Si l'utilisateur existe déjà, essayer de se connecter
+        const success = await login(formattedPhone, pin);
+        if (success) {
+          navigate("/");
+          return;
+        }
+      } else if (signUpData.user) {
+        toast.success("Compte créé et connecté automatiquement!");
+        navigate("/");
         return;
       }
       
-      // Tenter de confirmer manuellement
-      const { data, error: adminUpdateError } = await supabase.auth.admin.updateUserById(
-        '00000000-0000-0000-0000-000000000000', // ceci sera ignoré car nous n'avons pas les droits admin
-        { email_confirm: true }
-      );
-      
-      // Cette tentative échouera en général, mais nous pouvons quand même essayer une connexion directe
-      toast.success("Tentative de connexion directe...");
-      
-      // Tenter une connexion directe
+      // Tenter de se connecter sans vérification d'email
       const success = await login(formattedPhone, pin);
       if (success) {
         navigate("/");
       } else {
-        setError("Erreur lors de la confirmation automatique. Veuillez contacter l'administrateur.");
+        setError("La connexion automatique a échoué. Veuillez contacter l'administrateur.");
       }
     } catch (err) {
       console.error("Auto-confirm error:", err);
@@ -116,7 +114,7 @@ const Login = () => {
             {error && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
-                {error.includes("n'est pas confirmé") && (
+                {error.includes("erreur") && (
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -124,7 +122,7 @@ const Login = () => {
                     onClick={handleAutoConfirm}
                     disabled={processingAutoConfirm}
                   >
-                    {processingAutoConfirm ? "Confirmation en cours..." : "Confirmer mon compte"}
+                    {processingAutoConfirm ? "Connexion en cours..." : "Essayer une connexion automatique"}
                   </Button>
                 )}
               </div>
@@ -168,6 +166,15 @@ const Login = () => {
                 </button>
               </div>
             </div>
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full"
+              onClick={handleAutoConfirm}
+              disabled={isLoading || processingAutoConfirm}
+            >
+              {processingAutoConfirm ? "Connexion en cours..." : "Connexion automatique (si problème de confirmation)"}
+            </Button>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading || processingAutoConfirm}>
