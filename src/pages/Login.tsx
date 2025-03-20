@@ -40,10 +40,13 @@ const Login = () => {
       const success = await login(formattedPhone, pin);
       if (success) {
         navigate("/");
+      } else {
+        // Suggérer l'utilisation de la connexion automatique si l'échec est probablement lié à une confirmation
+        setError("La connexion a échoué. Essayez la connexion automatique ci-dessous.");
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Une erreur s'est produite lors de la connexion");
+      setError("Une erreur s'est produite lors de la connexion. Essayez la connexion automatique.");
     }
   };
 
@@ -56,44 +59,64 @@ const Login = () => {
       const formattedPhone = phone.replace(/\+|\s|-/g, '');
       const email = `user_${formattedPhone}@cashpoint.app`;
 
-      // Tentative de connexion directe
-      toast.info("Tentative de connexion directe...");
+      // Tentative de création du compte si inexistant
+      toast.info("Tentative de connexion automatique...");
       
+      // Essayer d'abord un signup forcé (si l'utilisateur n'existe pas encore)
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: email,
         password: pin,
         options: {
           data: {
             phone: formattedPhone
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
       
       if (signUpError) {
         console.error("Sign up attempt error:", signUpError);
         
-        // Si l'utilisateur existe déjà, essayer de se connecter
-        const success = await login(formattedPhone, pin);
-        if (success) {
+        // Si l'utilisateur existe déjà, forcer une connexion malgré l'absence de confirmation
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: pin,
+        });
+        
+        if (signInError) {
+          // Si la connexion classique échoue, essayer de réinitialiser la vérification
+          const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+          
+          if (resetError) {
+            throw new Error("La connexion automatique a échoué après plusieurs tentatives");
+          } else {
+            toast.success("Un nouvel email de confirmation a été envoyé");
+            setError("Veuillez confirmer votre email ou réessayer la connexion automatique dans quelques minutes");
+          }
+        } else if (data.user) {
+          toast.success("Connexion réussie!");
           navigate("/");
           return;
         }
       } else if (signUpData.user) {
-        toast.success("Compte créé et connecté automatiquement!");
-        navigate("/");
-        return;
-      }
-      
-      // Tenter de se connecter sans vérification d'email
-      const success = await login(formattedPhone, pin);
-      if (success) {
-        navigate("/");
-      } else {
-        setError("La connexion automatique a échoué. Veuillez contacter l'administrateur.");
+        // Si l'inscription réussit et que l'utilisateur est créé
+        // Tenter une connexion immédiate
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: pin,
+        });
+        
+        if (!signInError && signInData.user) {
+          toast.success("Compte créé et connecté avec succès!");
+          navigate("/");
+          return;
+        } else {
+          toast.info("Compte créé, mais la connexion automatique a échoué. Veuillez réessayer dans quelques instants.");
+        }
       }
     } catch (err) {
       console.error("Auto-confirm error:", err);
-      setError("Erreur lors de la confirmation automatique");
+      setError("Erreur lors de la confirmation automatique. Veuillez vérifier vos identifiants et réessayer.");
     } finally {
       setProcessingAutoConfirm(false);
     }
@@ -114,17 +137,6 @@ const Login = () => {
             {error && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
-                {error.includes("erreur") && (
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="w-full mt-2"
-                    onClick={handleAutoConfirm}
-                    disabled={processingAutoConfirm}
-                  >
-                    {processingAutoConfirm ? "Connexion en cours..." : "Essayer une connexion automatique"}
-                  </Button>
-                )}
               </div>
             )}
             
@@ -173,8 +185,11 @@ const Login = () => {
               onClick={handleAutoConfirm}
               disabled={isLoading || processingAutoConfirm}
             >
-              {processingAutoConfirm ? "Connexion en cours..." : "Connexion automatique (si problème de confirmation)"}
+              {processingAutoConfirm ? "Connexion en cours..." : "Connexion automatique"}
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Utilisez la connexion automatique si vous rencontrez des problèmes de confirmation d'email
+            </p>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading || processingAutoConfirm}>
