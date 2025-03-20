@@ -50,7 +50,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data for initial development before Supabase integration
 const mockUser: User = {
   id: "user-1",
   name: "Rakoto Jean",
@@ -103,10 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
 
-  // Fetch user data from Supabase and update state
   const fetchUserData = async (userId: string) => {
     try {
-      // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -115,7 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profileError) throw profileError;
 
-      // Fetch company settings
       const { data: companyData, error: companyError } = await supabase
         .from('company_settings')
         .select('*')
@@ -124,7 +120,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (companyError && companyError.code !== 'PGRST116') throw companyError;
 
-      // Fetch receipt settings
       const { data: receiptData, error: receiptError } = await supabase
         .from('receipt_settings')
         .select('*')
@@ -133,7 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (receiptError && receiptError.code !== 'PGRST116') throw receiptError;
 
-      // Construct user object
       const userData: User = {
         id: userId,
         name: profileData.name || '',
@@ -144,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           orangeMoney: 0,
           airtelMoney: 0,
         },
-        contacts: [], // We'll implement contacts later
+        contacts: [],
         company: companyData ? {
           name: companyData.name || '',
           address: companyData.address || '',
@@ -168,7 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Listen for authentication state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -186,7 +179,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Check if user is already logged in
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -209,7 +201,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Format the phone number as a valid email for Supabase authentication
       const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -248,10 +239,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Format the phone number as a valid email for Supabase authentication
       const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
-      // Disable email confirmation by using emailRedirectTo without actually requiring redirection
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: pin,
@@ -260,15 +249,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name,
             phone,
           },
-          // We don't use email confirmation anymore
-          emailRedirectTo: `${window.location.origin}/login`,
+          emailRedirectTo: null,
         },
       });
       
       if (error) {
         console.error('Signup error:', error);
         
-        // Show specific error message for already registered users
         if (error.message.includes("already registered")) {
           toast.error("Ce numéro de téléphone est déjà utilisé.");
         } else {
@@ -276,6 +263,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         return { error };
+      }
+      
+      if (data.user) {
+        console.log("User created, attempting immediate login");
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: pin,
+        });
+        
+        if (!signInError && signInData.user) {
+          await fetchUserData(signInData.user.id);
+          toast.success("Compte créé et connecté avec succès!");
+        } else {
+          console.log("Immediate login failed:", signInError);
+          toast.success("Compte créé avec succès! Vous pouvez maintenant vous connecter.");
+        }
       }
       
       return { data };
@@ -351,7 +357,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!user || !supabaseUser) return false;
       
-      // Update profile information if changed
       if (updates.name !== undefined || updates.email !== undefined || updates.phone !== undefined) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -366,7 +371,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileError) throw profileError;
       }
 
-      // Update company settings if changed
       if (updates.company) {
         const { error: companyError } = await supabase
           .from('company_settings')
@@ -382,7 +386,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (companyError) throw companyError;
       }
 
-      // Update receipt settings if changed
       if (updates.receiptSettings) {
         const { error: receiptError } = await supabase
           .from('receipt_settings')
@@ -398,7 +401,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (receiptError) throw receiptError;
       }
       
-      // Update local user state
       const updatedUser: User = {
         ...user,
         ...updates,
