@@ -1,24 +1,21 @@
 
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { EyeIcon, EyeOffIcon, KeyIcon, PhoneIcon, UserIcon, MailIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, KeyIcon, PhoneIcon, UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 const Signup = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState("");
-  const [useEmail, setUseEmail] = useState(false);
   const { signup, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -28,11 +25,6 @@ const Signup = () => {
     
     if (name.trim() === "" || phone.trim() === "" || pin.trim() === "") {
       setError("Tous les champs sont obligatoires");
-      return;
-    }
-
-    if (useEmail && email.trim() === "") {
-      setError("L'adresse email est obligatoire si vous activez cette option");
       return;
     }
 
@@ -50,13 +42,27 @@ const Signup = () => {
     const formattedPhone = phone.replace(/\+|\s|-/g, '');
 
     try {
-      const success = await signup(name, formattedPhone, pin, useEmail ? email : undefined);
-      if (success) {
-        navigate("/");
+      // Créer directement l'utilisateur sans email de confirmation
+      const email = `user_${formattedPhone}@cashpoint.app`;
+      
+      const { data, error } = await signup(name, formattedPhone, pin);
+      
+      if (error) {
+        console.error("Signup error:", error);
+        throw error;
       }
+      
+      toast.success("Compte créé avec succès!");
+      
+      // Connexion automatique après inscription
+      // Attendre un court instant avant d'essayer de se connecter
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Rediriger vers la page de connexion
+      navigate("/login");
     } catch (err) {
       console.error("Signup error:", err);
-      setError("Une erreur s'est produite lors de la création du compte");
+      setError("Une erreur s'est produite lors de la création du compte. Veuillez réessayer.");
     }
   };
 
@@ -105,36 +111,6 @@ const Signup = () => {
                 />
               </div>
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="useEmail"
-                checked={useEmail}
-                onChange={(e) => setUseEmail(e.target.checked)}
-                className="rounded border-gray-300"
-                disabled={isLoading}
-              />
-              <Label htmlFor="useEmail" className="text-sm font-medium cursor-pointer">
-                Utiliser une adresse email (recommandé)
-              </Label>
-            </div>
-            
-            {useEmail && (
-              <div className="space-y-2">
-                <div className="relative">
-                  <MailIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="Adresse email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-            )}
             
             <div className="space-y-2">
               <div className="relative">

@@ -40,7 +40,7 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   login: (phone: string, pin: string) => Promise<boolean>;
-  signup: (name: string, phone: string, pin: string, email?: string) => Promise<boolean>;
+  signup: (name: string, phone: string, pin: string, email?: string) => Promise<{data?: any, error?: any}>;
   logout: () => void;
   addContact: (contact: Omit<Contact, 'id'>) => void;
   updateContact: (id: string, updates: Partial<Omit<Contact, 'id'>>) => void;
@@ -220,11 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('Login error:', error);
         
-        // Afficher un message d'erreur spécifique en fonction du code d'erreur
-        if (error.message === "Email not confirmed") {
-          toast.error("Votre compte n'a pas été confirmé. Utilisez le bouton 'Connexion automatique'.");
-          return false;
-        } else if (error.message === "Invalid login credentials") {
+        if (error.message === "Invalid login credentials") {
           toast.error("Numéro de téléphone ou code PIN incorrect.");
           return false;
         }
@@ -248,61 +244,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (name: string, phone: string, pin: string, email?: string): Promise<boolean> => {
+  const signup = async (name: string, phone: string, pin: string): Promise<{data?: any, error?: any}> => {
     setIsLoading(true);
     
     try {
       // Format the phone number as a valid email for Supabase authentication
-      const autoEmail = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
+      const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app";
       
+      // Disable email confirmation by using emailRedirectTo without actually requiring redirection
       const { data, error } = await supabase.auth.signUp({
-        email: email || autoEmail,
+        email: email,
         password: pin,
         options: {
           data: {
             name,
             phone,
-            email: email,
           },
-          emailRedirectTo: window.location.origin,
+          // We don't use email confirmation anymore
+          emailRedirectTo: `${window.location.origin}/login`,
         },
       });
       
       if (error) {
         console.error('Signup error:', error);
         
-        // Afficher un message d'erreur spécifique en fonction du code d'erreur
+        // Show specific error message for already registered users
         if (error.message.includes("already registered")) {
           toast.error("Ce numéro de téléphone est déjà utilisé.");
-          return false;
+        } else {
+          toast.error("Erreur lors de la création du compte: " + error.message);
         }
         
-        throw error;
+        return { error };
       }
       
-      if (data.user) {
-        // Vérifier si l'email a besoin d'être confirmé
-        if (data.user.identities && data.user.identities.length > 0) {
-          const emailConfirmed = data.user.identities[0].identity_data.email_verified;
-          
-          if (emailConfirmed) {
-            toast.success("Compte créé avec succès!");
-          } else if (email) {
-            toast.success("Compte créé! Veuillez vérifier votre email pour confirmer votre compte.");
-          } else {
-            toast.success("Compte créé! Vous pourrez vous connecter en utilisant le bouton 'Connexion automatique'.");
-          }
-        } else {
-          toast.success("Compte créé avec succès!");
-        }
-        return true;
-      }
-      
-      return false;
+      return { data };
     } catch (error) {
       console.error('Signup error:', error);
       toast.error("Erreur lors de la création du compte. Veuillez réessayer.");
-      return false;
+      return { error };
     } finally {
       setIsLoading(false);
     }

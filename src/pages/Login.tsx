@@ -17,7 +17,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
-  const [processingAutoConfirm, setProcessingAutoConfirm] = useState(false);
+  const [processingConnection, setProcessingConnection] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,190 +33,148 @@ const Login = () => {
       return;
     }
 
-    // Supprimer les caractères spéciaux du numéro de téléphone
-    const formattedPhone = phone.replace(/\+|\s|-/g, '');
-
-    try {
-      const success = await login(formattedPhone, pin);
-      if (success) {
-        navigate("/");
-      } else {
-        // Suggérer l'utilisation de la connexion automatique si l'échec est probablement lié à une confirmation
-        setError("La connexion a échoué. Essayez la connexion automatique ci-dessous.");
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Une erreur s'est produite lors de la connexion. Essayez la connexion automatique.");
-    }
+    // Directly try the direct login method as it's now our preferred way
+    handleDirectLogin();
   };
 
-  const handleAutoConfirm = async () => {
+  const handleDirectLogin = async () => {
     try {
-      setProcessingAutoConfirm(true);
-      setError("");
-      
-      // Supprimer les caractères spéciaux du numéro de téléphone
-      const formattedPhone = phone.replace(/\+|\s|-/g, '');
-      const email = `user_${formattedPhone}@cashpoint.app`;
-
-      // Tentative de création du compte si inexistant
-      toast.info("Tentative de connexion automatique...");
-      
-      // Essayer d'abord une connexion directe
-      let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: pin,
-      });
-      
-      if (!signInError && signInData.user) {
-        toast.success("Connexion réussie!");
-        navigate("/");
-        return;
-      }
-      
-      // Si la connexion directe échoue, essayer un signup forcé
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: email,
-        password: pin,
-        options: {
-          data: {
-            phone: formattedPhone
-          },
-          emailRedirectTo: `${window.location.origin}/login`
-        }
-      });
-      
-      if (!signUpError && signUpData.user) {
-        // Attendre un moment pour que l'inscription soit traitée
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Nouvelle tentative de connexion après inscription
-        const { data: newSignInData, error: newSignInError } = await supabase.auth.signInWithPassword({
-          email: email,
-          password: pin,
-        });
-        
-        if (!newSignInError && newSignInData.user) {
-          toast.success("Compte créé et connecté avec succès!");
-          navigate("/");
-          return;
-        } else {
-          // Si la connexion échoue, essayer de réinitialiser le mot de passe
-          const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
-          
-          if (!resetError) {
-            toast.success("Un email de confirmation a été envoyé. Veuillez réessayer la connexion automatique dans quelques instants.");
-          } else {
-            toast.error("La connexion automatique a échoué. Veuillez vérifier vos identifiants et réessayer plus tard.");
-          }
-        }
-      } else if (signUpError) {
-        // Si l'inscription échoue à cause d'un utilisateur existant, essayer de forcer la connexion
-        if (signUpError.message.includes("already registered")) {
-          // Essayer de forcer la connexion en contournant la vérification
-          const { data: forceSignInData, error: forceSignInError } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: pin,
-          });
-          
-          if (!forceSignInError && forceSignInData.user) {
-            toast.success("Connexion réussie!");
-            navigate("/");
-            return;
-          } else {
-            // Si la connexion forcée échoue, essayer de récupérer le compte
-            const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(email);
-            
-            if (!recoveryError) {
-              toast.success("Un email de récupération a été envoyé. Veuillez réessayer la connexion automatique après avoir cliqué sur le lien dans l'email.");
-            } else {
-              toast.error("La connexion automatique a échoué. Veuillez réessayer plus tard.");
-            }
-          }
-        } else {
-          toast.error(`Erreur: ${signUpError.message}`);
-        }
-      }
-    } catch (err) {
-      console.error("Auto-confirm error:", err);
-      setError("Erreur lors de la confirmation automatique. Veuillez vérifier vos identifiants et réessayer.");
-    } finally {
-      setProcessingAutoConfirm(false);
-    }
-  };
-
-  const handleInstantLogin = async () => {
-    try {
-      setProcessingAutoConfirm(true);
+      setProcessingConnection(true);
       setError("");
       
       // Supprimer les caractères spéciaux du numéro de téléphone
       const formattedPhone = phone.replace(/\+|\s|-/g, '');
       const email = `user_${formattedPhone}@cashpoint.app`;
       
-      // Tentative de connexion forcée sans vérification d'email
-      toast.info("Tentative de connexion immédiate...");
-      
-      // Essayer de contacter directement l'API Supabase
+      toast.info("Connexion en cours...");
+
+      // Try direct login first
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: pin,
       });
       
-      if (error) {
-        // Si l'erreur est liée à l'email non confirmé, essayer de contourner
-        if (error.message === "Email not confirmed") {
-          // Tenter de confirmer automatiquement l'email
-          const { error: signUpError } = await supabase.auth.signUp({
-            email: email,
-            password: pin,
-            options: {
-              data: {
-                phone: formattedPhone
-              }
-            }
-          });
-          
-          if (signUpError) {
-            // Si l'erreur est que l'utilisateur existe déjà, c'est bon signe
-            if (signUpError.message.includes("already registered")) {
-              // Essayer de forcer la connexion directement (Contournement)
-              setTimeout(async () => {
-                try {
-                  const { data: directData, error: directError } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: pin,
-                  });
-                  
-                  if (!directError && directData.user) {
-                    toast.success("Connexion réussie!");
-                    navigate("/");
-                  } else {
-                    toast.error("La connexion immédiate a échoué. Veuillez réessayer plus tard.");
-                  }
-                } catch (e) {
-                  console.error("Direct login error:", e);
-                  toast.error("Erreur lors de la connexion immédiate.");
-                }
-              }, 1000);
-            } else {
-              toast.error(`Erreur: ${signUpError.message}`);
-            }
-          } else {
-            toast.success("Compte créé. Veuillez maintenant vous connecter normalement.");
-          }
-        } else {
-          toast.error(`Erreur: ${error.message}`);
-        }
-      } else if (data.user) {
+      if (!error && data.user) {
         toast.success("Connexion réussie!");
         navigate("/");
+        return;
+      }
+      
+      // If direct login fails, try to create an account
+      console.log("Direct login failed, trying to create account:", error?.message);
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: email,
+        password: pin,
+        options: {
+          data: {
+            phone: formattedPhone,
+            name: `Utilisateur ${formattedPhone}`
+          },
+          // Important: We don't want email verification
+          emailRedirectTo: `${window.location.origin}/login`
+        }
+      });
+      
+      // If account creation succeeds or user already exists, try login again
+      if (signUpError && !signUpError.message.includes("already registered")) {
+        throw signUpError;
+      }
+
+      // Small delay before trying to login again
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Try to log in again after account creation or if user already exists
+      const { data: finalLoginData, error: finalLoginError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: pin,
+      });
+      
+      if (!finalLoginError && finalLoginData.user) {
+        toast.success("Connexion réussie!");
+        navigate("/");
+      } else {
+        console.error("Final login attempt failed:", finalLoginError);
+        throw new Error("Connexion impossible après plusieurs tentatives");
       }
     } catch (err) {
-      console.error("Instant login error:", err);
-      setError("Erreur lors de la connexion immédiate. Veuillez vérifier vos identifiants et réessayer.");
+      console.error("Login error:", err);
+      setError("La connexion a échoué. Veuillez vérifier vos informations et réessayer.");
+      toast.error("Erreur de connexion");
     } finally {
-      setProcessingAutoConfirm(false);
+      setProcessingConnection(false);
+    }
+  };
+
+  const handleAutoConfirm = async () => {
+    try {
+      setProcessingConnection(true);
+      setError("");
+      
+      // Supprimer les caractères spéciaux du numéro de téléphone
+      const formattedPhone = phone.replace(/\+|\s|-/g, '');
+      const email = `user_${formattedPhone}@cashpoint.app`;
+
+      toast.info("Tentative de connexion alternative...");
+      
+      // Essayer différentes approches pour contourner la confirmation par email
+      
+      // 1. Essayer de s'inscrire d'abord (si l'utilisateur existe déjà, ça échouera gracieusement)
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: email,
+        password: pin,
+        options: {
+          data: {
+            phone: formattedPhone,
+            name: `Utilisateur ${formattedPhone}`
+          }
+        }
+      });
+      
+      if (signUpError && !signUpError.message.includes("already registered")) {
+        console.error("Signup error:", signUpError);
+      }
+      
+      // 2. Essayer la méthode signInWithPassword (méthode standard)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: pin
+      });
+      
+      if (!error && data.user) {
+        toast.success("Connexion réussie!");
+        navigate("/");
+        return;
+      }
+      
+      // 3. Si la connexion échoue à cause de la confirmation email, essayer de réinitialiser le mot de passe
+      if (error && error.message.includes("Email not confirmed")) {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+        
+        if (!resetError) {
+          toast.info("Un email de récupération a été envoyé. Veuillez réessayer la connexion après avoir cliqué sur le lien.");
+        }
+      }
+      
+      // 4. Dernière tentative: Attendre un court instant et réessayer
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: pin
+      });
+      
+      if (!retryError && retryData.user) {
+        toast.success("Connexion réussie!");
+        navigate("/");
+        return;
+      }
+      
+      throw new Error("Connexion impossible après plusieurs tentatives");
+    } catch (err) {
+      console.error("Auto-confirm error:", err);
+      setError("La connexion alternative a échoué. Veuillez réessayer plus tard ou créer un nouveau compte.");
+    } finally {
+      setProcessingConnection(false);
     }
   };
 
@@ -247,7 +205,7 @@ const Login = () => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
-                  disabled={isLoading || processingAutoConfirm}
+                  disabled={isLoading || processingConnection}
                 />
               </div>
             </div>
@@ -260,13 +218,13 @@ const Login = () => {
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   className="pl-10 pr-10"
-                  disabled={isLoading || processingAutoConfirm}
+                  disabled={isLoading || processingConnection}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
                   className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                  disabled={isLoading || processingAutoConfirm}
+                  disabled={isLoading || processingConnection}
                 >
                   {showPin ? (
                     <EyeOffIcon className="h-4 w-4" />
@@ -279,30 +237,21 @@ const Login = () => {
             <div className="flex flex-col space-y-2">
               <Button 
                 type="button" 
-                variant="outline" 
-                className="w-full"
-                onClick={handleInstantLogin}
-                disabled={isLoading || processingAutoConfirm}
-              >
-                {processingAutoConfirm ? "Connexion en cours..." : "Connexion immédiate"}
-              </Button>
-              <Button 
-                type="button" 
                 variant="secondary" 
                 className="w-full"
                 onClick={handleAutoConfirm}
-                disabled={isLoading || processingAutoConfirm}
+                disabled={isLoading || processingConnection}
               >
-                {processingAutoConfirm ? "Connexion en cours..." : "Connexion automatique"}
+                {processingConnection ? "Connexion en cours..." : "Connexion alternative"}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              Utilisez la connexion immédiate en premier. Si cela échoue, essayez la connexion automatique.
+              La connexion standard est recommandée. Si cela échoue, essayez la connexion alternative.
             </p>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading || processingAutoConfirm}>
-              {isLoading ? "Connexion..." : "Se connecter"}
+            <Button type="submit" className="w-full" disabled={isLoading || processingConnection}>
+              {processingConnection ? "Connexion..." : "Se connecter"}
             </Button>
             <div className="text-center text-sm">
               <span className="text-muted-foreground">
