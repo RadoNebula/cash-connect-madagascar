@@ -249,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       // Format the phone number as a valid email for Supabase authentication
-      const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app";
+      const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       // Disable email confirmation by using emailRedirectTo without actually requiring redirection
       const { data, error } = await supabase.auth.signUp({
