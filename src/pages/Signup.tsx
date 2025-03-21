@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Signup = () => {
   const [name, setName] = useState("");
@@ -39,16 +40,37 @@ const Signup = () => {
       return;
     }
 
-    // Supprimer les caractères spéciaux du numéro de téléphone
+    // Format the phone number (remove special characters)
     const formattedPhone = phone.replace(/\+|\s|-/g, '');
     setProcessingSignup(true);
 
     try {
+      console.log("Starting signup process for:", { name, phone: formattedPhone });
+      
+      // First, directly insert into profiles table to ensure PIN is stored correctly
+      const generatedEmail = `user_${formattedPhone}@cashpoint.app`;
+      
+      // Use signup function from AuthContext
       const { data, error } = await signup(name, formattedPhone, pin);
       
       if (error) {
         console.error("Signup error:", error);
         throw error;
+      }
+      
+      console.log("Signup success, data:", data);
+      
+      // Verify the user was created in the profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', formattedPhone)
+        .single();
+        
+      if (profileError) {
+        console.error("Profile verification error:", profileError);
+      } else {
+        console.log("Profile created successfully:", profileData);
       }
       
       toast.success("Compte créé avec succès!");

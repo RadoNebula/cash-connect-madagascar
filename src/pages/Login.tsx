@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const [phone, setPhone] = useState("");
@@ -37,8 +38,23 @@ const Login = () => {
     try {
       // Format phone number for consistency (remove special characters)
       const formattedPhone = phone.replace(/\+|\s|-/g, '');
+      console.log("Attempting login with:", { phone: formattedPhone });
+      
+      // First, check directly with our custom RPC function
+      const { data: directAuthData, error: directAuthError } = await supabase.rpc(
+        'check_user_credentials',
+        { phone_param: formattedPhone, pin_param: pin }
+      );
+      
+      console.log("Direct auth check result:", directAuthData, directAuthError);
+      
+      if (directAuthData) {
+        // We found a matching user, now use the login function to create a session
+        console.log("User found via direct check, proceeding with login");
+      }
       
       const success = await login(formattedPhone, pin);
+      
       if (success) {
         toast.success("Connexion réussie!");
         navigate("/");
