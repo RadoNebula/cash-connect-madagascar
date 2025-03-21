@@ -50,53 +50,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const mockUser: User = {
-  id: "user-1",
-  name: "Rakoto Jean",
-  phone: "+261 34 00 000 00",
-  email: "rakoto@example.com",
-  balances: {
-    mvola: 150000,
-    orangeMoney: 75000,
-    airtelMoney: 30000,
-  },
-  contacts: [
-    {
-      id: "contact-1",
-      name: "Marie",
-      phone: "+261 32 11 222 33",
-      favorite: true,
-      category: 'family',
-    },
-    {
-      id: "contact-2",
-      name: "Pierre",
-      phone: "+261 33 22 333 44",
-      favorite: false,
-      category: 'friends',
-    },
-    {
-      id: "contact-3",
-      name: "Boutique Centrale",
-      phone: "+261 34 33 444 55",
-      favorite: true,
-      category: 'business',
-    },
-  ],
-  company: {
-    name: "Kioska Nakà",
-    address: "Lot 34 Ambondrona, Antananarivo",
-    phone: "+261 34 00 000 00",
-    email: "contact@kioskanaka.mg"
-  },
-  receiptSettings: {
-    showLogo: true,
-    showContact: true,
-    showCompanyInfo: true,
-    footerText: "Merci de votre confiance!"
-  }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);

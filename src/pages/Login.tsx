@@ -37,6 +37,7 @@ const Login = () => {
     try {
       const success = await login(phone, pin);
       if (success) {
+        toast.success("Connexion réussie!");
         navigate("/");
       } else {
         setError("La connexion a échoué. Veuillez vérifier vos informations et réessayer.");
