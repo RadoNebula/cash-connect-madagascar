@@ -212,11 +212,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Login error:', error);
         
         if (error.message === "Invalid login credentials") {
-          toast.error("Numéro de téléphone ou code PIN incorrect.");
-          return false;
+          console.log("Attempting to create account with same credentials");
+          
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: email,
+            password: pin,
+            options: {
+              data: {
+                name: `Utilisateur ${phone}`,
+                phone: phone,
+              },
+              emailRedirectTo: null,
+            }
+          });
+          
+          if (signUpError) {
+            if (signUpError.message.includes("already registered")) {
+              toast.error("Compte existant mais connexion impossible. Veuillez réessayer plus tard.");
+            } else {
+              toast.error("Erreur lors de la création du compte: " + signUpError.message);
+            }
+            return false;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const { data: reLoginData, error: reLoginError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: pin,
+          });
+          
+          if (reLoginError) {
+            toast.error("Compte créé mais connexion impossible. Veuillez réessayer dans quelques instants.");
+            return false;
+          }
+          
+          if (reLoginData.user) {
+            await fetchUserData(reLoginData.user.id);
+            toast.success("Compte créé et connecté avec succès!");
+            return true;
+          }
+        } else {
+          toast.error("Erreur de connexion: " + error.message);
         }
         
-        throw error;
+        return false;
       }
       
       if (data.user) {
@@ -250,14 +290,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             phone,
           },
           emailRedirectTo: null,
-        },
+        }
       });
       
       if (error) {
         console.error('Signup error:', error);
         
         if (error.message.includes("already registered")) {
-          toast.error("Ce numéro de téléphone est déjà utilisé.");
+          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: pin,
+          });
+          
+          if (!loginError && loginData.user) {
+            await fetchUserData(loginData.user.id);
+            toast.success("Connexion réussie!");
+            return { data: loginData };
+          } else {
+            toast.error("Ce numéro de téléphone est déjà utilisé avec un autre code PIN.");
+          }
         } else {
           toast.error("Erreur lors de la création du compte: " + error.message);
         }
@@ -266,20 +317,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data.user) {
-        console.log("User created, attempting immediate login");
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
           email: email,
           password: pin,
         });
         
-        if (!signInError && signInData.user) {
-          await fetchUserData(signInData.user.id);
+        if (!loginError && loginData.user) {
+          await fetchUserData(loginData.user.id);
           toast.success("Compte créé et connecté avec succès!");
         } else {
-          console.log("Immediate login failed:", signInError);
+          console.log("Immediate login after signup failed:", loginError);
           toast.success("Compte créé avec succès! Vous pouvez maintenant vous connecter.");
         }
       }
