@@ -40,7 +40,21 @@ const Login = () => {
       const formattedPhone = phone.replace(/\+|\s|-/g, '');
       console.log("Attempting login with:", { phone: formattedPhone });
       
-      // First, check directly with our custom RPC function
+      // First, check if profile exists for this phone number
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', formattedPhone)
+        .maybeSingle();
+        
+      if (!profileData) {
+        console.log("No profile found for phone:", formattedPhone);
+        setError("Aucun compte trouvé avec ce numéro de téléphone");
+        setProcessingConnection(false);
+        return;
+      }
+      
+      // Check credentials with our custom RPC function
       const { data: directAuthData, error: directAuthError } = await supabase.rpc(
         'check_user_credentials',
         { phone_param: formattedPhone, pin_param: pin }
@@ -48,10 +62,14 @@ const Login = () => {
       
       console.log("Direct auth check result:", directAuthData, directAuthError);
       
-      if (directAuthData) {
-        // We found a matching user, now use the login function to create a session
-        console.log("User found via direct check, proceeding with login");
+      if (!directAuthData) {
+        console.log("Invalid credentials for phone:", formattedPhone);
+        setError("Code PIN incorrect");
+        setProcessingConnection(false);
+        return;
       }
+      
+      console.log("User found via direct check, proceeding with login");
       
       const success = await login(formattedPhone, pin);
       

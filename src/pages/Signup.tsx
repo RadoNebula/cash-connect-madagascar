@@ -47,10 +47,20 @@ const Signup = () => {
     try {
       console.log("Starting signup process for:", { name, phone: formattedPhone });
       
-      // First, directly insert into profiles table to ensure PIN is stored correctly
-      const generatedEmail = `user_${formattedPhone}@cashpoint.app`;
+      // First check if profile already exists with this phone number
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone', formattedPhone)
+        .maybeSingle();
+        
+      if (existingProfile) {
+        setError("Un compte avec ce numéro de téléphone existe déjà");
+        setProcessingSignup(false);
+        return;
+      }
       
-      // Use signup function from AuthContext
+      // Use signup function from AuthContext with all required data
       const { data, error } = await signup(name, formattedPhone, pin);
       
       if (error) {
@@ -60,15 +70,19 @@ const Signup = () => {
       
       console.log("Signup success, data:", data);
       
+      // Wait a moment to ensure database operations complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Verify the user was created in the profiles table
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('phone', formattedPhone)
-        .single();
+        .maybeSingle();
         
       if (profileError) {
         console.error("Profile verification error:", profileError);
+        // Even if verification fails, we'll continue if signup was successful
       } else {
         console.log("Profile created successfully:", profileData);
       }
