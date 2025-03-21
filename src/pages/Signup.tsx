@@ -18,6 +18,7 @@ const Signup = () => {
   const [error, setError] = useState("");
   const { signup, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [processingSignup, setProcessingSignup] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,11 +41,9 @@ const Signup = () => {
 
     // Supprimer les caractères spéciaux du numéro de téléphone
     const formattedPhone = phone.replace(/\+|\s|-/g, '');
+    setProcessingSignup(true);
 
     try {
-      // Créer directement l'utilisateur sans email de confirmation
-      const email = `user_${formattedPhone}@cashpoint.app`;
-      
       const { data, error } = await signup(name, formattedPhone, pin);
       
       if (error) {
@@ -53,16 +52,12 @@ const Signup = () => {
       }
       
       toast.success("Compte créé avec succès!");
-      
-      // Connexion automatique après inscription
-      // Attendre un court instant avant d'essayer de se connecter
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Rediriger vers la page de connexion
-      navigate("/login");
+      navigate("/");
     } catch (err) {
       console.error("Signup error:", err);
       setError("Une erreur s'est produite lors de la création du compte. Veuillez réessayer.");
+    } finally {
+      setProcessingSignup(false);
     }
   };
 
@@ -93,7 +88,7 @@ const Signup = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="pl-10"
-                  disabled={isLoading}
+                  disabled={isLoading || processingSignup}
                 />
               </div>
             </div>
@@ -107,7 +102,7 @@ const Signup = () => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
-                  disabled={isLoading}
+                  disabled={isLoading || processingSignup}
                 />
               </div>
             </div>
@@ -122,12 +117,13 @@ const Signup = () => {
                   onChange={(e) => setPin(e.target.value)}
                   className="pl-10 pr-10"
                   maxLength={8}
-                  disabled={isLoading}
+                  disabled={isLoading || processingSignup}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
                   className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                  disabled={isLoading || processingSignup}
                 >
                   {showPin ? (
                     <EyeOffIcon className="h-4 w-4" />
@@ -148,14 +144,14 @@ const Signup = () => {
                   onChange={(e) => setConfirmPin(e.target.value)}
                   className="pl-10 pr-10"
                   maxLength={8}
-                  disabled={isLoading}
+                  disabled={isLoading || processingSignup}
                 />
               </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Création..." : "Créer un compte"}
+            <Button type="submit" className="w-full" disabled={isLoading || processingSignup}>
+              {processingSignup ? "Création..." : "Créer un compte"}
             </Button>
             <div className="text-center text-sm">
               <span className="text-muted-foreground">

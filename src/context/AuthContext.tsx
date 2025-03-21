@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +155,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
+      console.log("Attempting direct login with phone and PIN");
+      
+      // First, check if we can authenticate directly with phone and PIN using our custom function
+      const { data: directAuthData, error: directAuthError } = await supabase.rpc(
+        'check_user_credentials',
+        { phone_param: phone, pin_param: pin }
+      );
+      
+      console.log("Direct auth result:", directAuthData, directAuthError);
+      
+      if (directAuthData) {
+        // If we found a matching user ID, log them in via Supabase auth
+        const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
+        
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: pin,
+        });
+        
+        if (error) {
+          console.error("Auth error after direct verification:", error);
+          
+          // If sign in fails but we verified credentials, create the auth user
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: email,
+            password: pin,
+            options: {
+              data: {
+                name: phone, // Use phone as temporary name
+                phone: phone,
+                pin: pin
+              },
+              emailRedirectTo: null,
+            }
+          });
+          
+          if (signUpError) {
+            toast.error("Erreur lors de l'authentification: " + signUpError.message);
+            return false;
+          }
+          
+          const { data: reLoginData, error: reLoginError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: pin,
+          });
+          
+          if (reLoginError) {
+            toast.error("Erreur lors de l'authentification: " + reLoginError.message);
+            return false;
+          }
+          
+          if (reLoginData.user) {
+            await fetchUserData(reLoginData.user.id);
+            toast.success("Connexion réussie!");
+            return true;
+          }
+        }
+        
+        if (data.user) {
+          await fetchUserData(data.user.id);
+          toast.success("Connexion réussie!");
+          return true;
+        }
+      }
+      
+      // Fall back to traditional email/password auth if direct auth fails
       const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -174,6 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               data: {
                 name: `Utilisateur ${phone}`,
                 phone: phone,
+                pin: pin
               },
               emailRedirectTo: null,
             }
@@ -181,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (signUpError) {
             if (signUpError.message.includes("already registered")) {
-              toast.error("Compte existant mais connexion impossible. Veuillez réessayer plus tard.");
+              toast.error("Connexion impossible. Veuillez réessayer avec un code PIN différent.");
             } else {
               toast.error("Erreur lors de la création du compte: " + signUpError.message);
             }
@@ -228,19 +296,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (name: string, phone: string, pin: string): Promise<{data?: any, error?: any}> => {
+  const signup = async (name: string, phone: string, pin: string, email?: string): Promise<{data?: any, error?: any}> => {
     setIsLoading(true);
     
     try {
-      const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
+      const generatedEmail = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       const { data, error } = await supabase.auth.signUp({
-        email: email,
+        email: email || generatedEmail,
         password: pin,
         options: {
           data: {
             name,
             phone,
+            pin
           },
           emailRedirectTo: null,
         }
@@ -251,7 +320,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (error.message.includes("already registered")) {
           const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-            email: email,
+            email: generatedEmail,
             password: pin,
           });
           
@@ -273,7 +342,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-          email: email,
+          email: email || generatedEmail,
           password: pin,
         });
         

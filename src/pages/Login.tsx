@@ -35,7 +35,10 @@ const Login = () => {
     setProcessingConnection(true);
     
     try {
-      const success = await login(phone, pin);
+      // Format phone number for consistency (remove special characters)
+      const formattedPhone = phone.replace(/\+|\s|-/g, '');
+      
+      const success = await login(formattedPhone, pin);
       if (success) {
         toast.success("Connexion réussie!");
         navigate("/");
