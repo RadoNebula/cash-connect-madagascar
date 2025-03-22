@@ -1,170 +1,20 @@
 
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { EyeIcon, EyeOffIcon, KeyIcon, PhoneIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/context/AuthContext";
-import { Logo } from "@/components/Logo";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login = () => {
-  const [phone, setPhone] = useState("");
-  const [pin, setPin] = useState("");
-  const [showPin, setShowPin] = useState(false);
-  const [error, setError] = useState("");
-  const { login, isLoading } = useAuth();
   const navigate = useNavigate();
-  const [processingConnection, setProcessingConnection] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    
-    if (phone.trim() === "" || pin.trim() === "") {
-      setError("Veuillez remplir tous les champs");
-      return;
-    }
-
-    if (pin.length < 6) {
-      setError("Le code PIN doit contenir au moins 6 chiffres");
-      return;
-    }
-
-    setProcessingConnection(true);
-    
-    try {
-      // Format phone number for consistency (remove special characters)
-      const formattedPhone = phone.replace(/\+|\s|-/g, '');
-      console.log("Attempting login with:", { phone: formattedPhone });
-      
-      // First, check if user account exists for this phone number
-      const { data: userData, error: userError } = await supabase
-        .from('user_accounts')
-        .select('*')
-        .eq('phone', formattedPhone)
-        .maybeSingle();
-        
-      if (!userData) {
-        console.log("No user account found for phone:", formattedPhone);
-        setError("Aucun compte trouvé avec ce numéro de téléphone");
-        setProcessingConnection(false);
-        return;
-      }
-      
-      console.log("User account found:", userData);
-      
-      // Try direct sign in with email and pin (this will work if the auth account exists)
-      const email = `user_${formattedPhone}@cashpoint.app`;
-      console.log("Attempting sign in with email:", email);
-      
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: pin,
-      });
-      
-      if (signInData.user) {
-        console.log("Sign in successful:", signInData.user);
-        toast.success("Connexion réussie!");
-        navigate("/");
-        return;
-      }
-      
-      if (signInError) {
-        console.log("Sign in error:", signInError);
-        // Fall back to our custom login method if direct sign in fails
-        const success = await login(formattedPhone, pin);
-        
-        if (success) {
-          toast.success("Connexion réussie!");
-          navigate("/");
-        } else {
-          setError("La connexion a échoué. Veuillez vérifier votre code PIN et réessayer.");
-        }
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Une erreur est survenue lors de la connexion. Veuillez réessayer.");
-    } finally {
-      setProcessingConnection(false);
-    }
-  };
+  useEffect(() => {
+    // Rediriger automatiquement vers la page d'accueil
+    toast.success("Accès direct activé");
+    navigate("/");
+  }, [navigate]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-b from-primary/5 to-background">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 flex flex-col items-center">
-          <Logo size="lg" className="mb-4" />
-          <CardTitle className="text-2xl font-bold">Bienvenue</CardTitle>
-          <CardDescription>
-            Connectez-vous pour accéder à votre tableau de bord
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-2">
-              <div className="relative">
-                <PhoneIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Numéro de téléphone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="pl-10"
-                  disabled={isLoading || processingConnection}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="relative">
-                <KeyIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type={showPin ? "text" : "password"}
-                  placeholder="Code PIN (au moins 6 chiffres)"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="pl-10 pr-10"
-                  disabled={isLoading || processingConnection}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                  disabled={isLoading || processingConnection}
-                >
-                  {showPin ? (
-                    <EyeOffIcon className="h-4 w-4" />
-                  ) : (
-                    <EyeIcon className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading || processingConnection}>
-              {processingConnection ? "Connexion..." : "Se connecter"}
-            </Button>
-            <div className="text-center text-sm">
-              <span className="text-muted-foreground">
-                Vous n'avez pas de compte?{" "}
-              </span>
-              <Link to="/signup" className="text-primary hover:underline">
-                Créer un compte
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <p>Redirection vers l'application...</p>
     </div>
   );
 };
