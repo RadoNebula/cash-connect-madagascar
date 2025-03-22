@@ -81,7 +81,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileError && profileError.code !== 'PGRST116') {
           throw profileError;
         }
-        userProfile = profileData;
+        
+        // If we get data from the profiles table, it won't have auth_id
+        // So we need to adapt it to our expected format
+        if (profileData) {
+          userProfile = {
+            ...profileData,
+            auth_id: profileData.id, // Use the profile id as auth_id
+          };
+        }
       }
 
       if (!userProfile) {
