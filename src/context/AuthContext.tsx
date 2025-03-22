@@ -59,18 +59,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchUserData = async (userId: string) => {
     try {
       // First try to get user from user_accounts table (new table)
-      const { data: userData, error: userError } = await supabase
+      const { data: userAccountData, error: userAccountError } = await supabase
         .from('user_accounts')
         .select('*')
         .eq('auth_id', userId)
         .maybeSingle();
 
-      if (userError && userError.code !== 'PGRST116') {
-        throw userError;
+      if (userAccountError && userAccountError.code !== 'PGRST116') {
+        throw userAccountError;
       }
 
       // If no user in user_accounts, try to get from profiles table (old table)
-      let userProfile = userData;
+      let userProfile = userAccountData;
       if (!userProfile) {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -529,65 +529,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Error updating user:", error);
       return false;
     }
-  };
-
-  const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      console.error('Logout error:', error);
-      toast.error("Erreur lors de la déconnexion");
-    } else {
-      setUser(null);
-      toast.success("Déconnexion réussie");
-    }
-  };
-
-  const addContact = (contact: Omit<Contact, 'id'>) => {
-    if (!user) return;
-    
-    const newContact: Contact = {
-      ...contact,
-      id: `contact-${Date.now()}`,
-    };
-    
-    const updatedUser: User = {
-      ...user,
-      contacts: [...user.contacts, newContact],
-    };
-    
-    setUser(updatedUser);
-    toast.success(`Contact ${contact.name} ajouté!`);
-  };
-
-  const updateContact = (id: string, updates: Partial<Omit<Contact, 'id'>>) => {
-    if (!user) return;
-    
-    const updatedContacts = user.contacts.map(contact => 
-      contact.id === id ? { ...contact, ...updates } : contact
-    );
-    
-    const updatedUser: User = {
-      ...user,
-      contacts: updatedContacts,
-    };
-    
-    setUser(updatedUser);
-    toast.success("Contact mis à jour!");
-  };
-
-  const removeContact = (id: string) => {
-    if (!user) return;
-    
-    const updatedContacts = user.contacts.filter(contact => contact.id !== id);
-    
-    const updatedUser: User = {
-      ...user,
-      contacts: updatedContacts,
-    };
-    
-    setUser(updatedUser);
-    toast.success("Contact supprimé!");
   };
 
   return (
