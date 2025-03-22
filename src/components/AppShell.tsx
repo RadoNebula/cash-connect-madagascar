@@ -41,9 +41,7 @@ export function AppShell({ children }: AppShellProps) {
     navigate("/login");
   };
 
-  if (!user) {
-    return <>{children}</>;
-  }
+  // Removed the user check to always render the full UI
 
   return (
     <div className="flex min-h-screen flex-col">

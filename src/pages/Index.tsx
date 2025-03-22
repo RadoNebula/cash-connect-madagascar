@@ -24,14 +24,23 @@ const Index = () => {
   
   const recentTransactions = getRecentTransactions(5);
   
-  if (!user) {
-    return null;
-  }
+  const mockUser = {
+    id: "mock-user",
+    name: "Utilisateur",
+    email: "user@example.com",
+    balances: {
+      mvola: 150000,
+      orangeMoney: 75000,
+      airtelMoney: 50000
+    }
+  };
+  
+  const activeUser = user || mockUser;
 
   const totalBalance = 
-    user.balances.mvola + 
-    user.balances.orangeMoney + 
-    user.balances.airtelMoney;
+    activeUser.balances.mvola + 
+    activeUser.balances.orangeMoney + 
+    activeUser.balances.airtelMoney;
 
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString() + " Ar";
@@ -49,10 +58,9 @@ const Index = () => {
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-8 md:pl-56">
-        {/* Welcome section */}
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Bonjour, {user.name.split(' ')[0]}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Bonjour, {activeUser.name.split(' ')[0]}</h1>
             <p className="text-muted-foreground">
               Bienvenue sur votre tableau de bord Cash Point
             </p>
@@ -69,7 +77,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Balance cards */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card className="bg-gradient-to-br from-primary/20 to-primary/10 border-primary/20">
             <CardHeader className="pb-2">
@@ -87,7 +94,7 @@ const Index = () => {
               <ServiceIcon service="mvola" size={20} />
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(user.balances.mvola)}</div>
+              <div className="text-xl font-bold">{formatCurrency(activeUser.balances.mvola)}</div>
             </CardContent>
           </Card>
 
@@ -96,7 +103,7 @@ const Index = () => {
               <ServiceIcon service="orangeMoney" size={20} />
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(user.balances.orangeMoney)}</div>
+              <div className="text-xl font-bold">{formatCurrency(activeUser.balances.orangeMoney)}</div>
             </CardContent>
           </Card>
 
@@ -105,12 +112,11 @@ const Index = () => {
               <ServiceIcon service="airtelMoney" size={20} />
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(user.balances.airtelMoney)}</div>
+              <div className="text-xl font-bold">{formatCurrency(activeUser.balances.airtelMoney)}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick action buttons */}
         <div className="grid grid-cols-3 gap-4">
           <Button 
             variant="outline" 
@@ -138,7 +144,6 @@ const Index = () => {
           </Button>
         </div>
 
-        {/* Recent transactions */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-lg font-medium">Transactions récentes</CardTitle>
