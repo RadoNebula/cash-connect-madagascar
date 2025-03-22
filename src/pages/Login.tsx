@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login = () => {
   const [phone, setPhone] = useState("");
@@ -56,31 +57,33 @@ const Login = () => {
       
       console.log("User account found:", userData);
       
-      // Check credentials with our custom RPC function
-      const { data: directAuthData, error: directAuthError } = await supabase.rpc(
-        'check_user_account_credentials',
-        { phone_param: formattedPhone, pin_param: pin }
-      );
+      // Try direct sign in with email and pin (this will work if the auth account exists)
+      const email = `user_${formattedPhone}@cashpoint.app`;
+      console.log("Attempting sign in with email:", email);
       
-      console.log("Direct auth check result:", directAuthData, directAuthError);
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: pin,
+      });
       
-      if (!directAuthData) {
-        console.log("Invalid credentials for phone:", formattedPhone);
-        setError("Code PIN incorrect");
-        setProcessingConnection(false);
+      if (signInData.user) {
+        console.log("Sign in successful:", signInData.user);
+        toast.success("Connexion réussie!");
+        navigate("/");
         return;
       }
       
-      console.log("User found via direct check, proceeding with login");
-      
-      // Use the login function from AuthContext with the new user account system
-      const success = await login(formattedPhone, pin);
-      
-      if (success) {
-        toast.success("Connexion réussie!");
-        navigate("/");
-      } else {
-        setError("La connexion a échoué. Veuillez vérifier vos informations et réessayer.");
+      if (signInError) {
+        console.log("Sign in error:", signInError);
+        // Fall back to our custom login method if direct sign in fails
+        const success = await login(formattedPhone, pin);
+        
+        if (success) {
+          toast.success("Connexion réussie!");
+          navigate("/");
+        } else {
+          setError("La connexion a échoué. Veuillez vérifier votre code PIN et réessayer.");
+        }
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -103,9 +106,9 @@ const Login = () => {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
             
             <div className="space-y-2">
