@@ -40,25 +40,25 @@ const Login = () => {
       const formattedPhone = phone.replace(/\+|\s|-/g, '');
       console.log("Attempting login with:", { phone: formattedPhone });
       
-      // First, check if profile exists for this phone number
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+      // First, check if user account exists for this phone number
+      const { data: userData, error: userError } = await supabase
+        .from('user_accounts')
         .select('*')
         .eq('phone', formattedPhone)
         .maybeSingle();
         
-      if (!profileData) {
-        console.log("No profile found for phone:", formattedPhone);
+      if (!userData) {
+        console.log("No user account found for phone:", formattedPhone);
         setError("Aucun compte trouvé avec ce numéro de téléphone");
         setProcessingConnection(false);
         return;
       }
       
-      console.log("Profile found:", profileData);
+      console.log("User account found:", userData);
       
       // Check credentials with our custom RPC function
       const { data: directAuthData, error: directAuthError } = await supabase.rpc(
-        'check_user_credentials',
+        'check_user_account_credentials',
         { phone_param: formattedPhone, pin_param: pin }
       );
       
@@ -73,7 +73,7 @@ const Login = () => {
       
       console.log("User found via direct check, proceeding with login");
       
-      // Use the login function from AuthContext
+      // Use the login function from AuthContext with the new user account system
       const success = await login(formattedPhone, pin);
       
       if (success) {

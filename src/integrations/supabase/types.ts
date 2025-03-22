@@ -171,11 +171,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_accounts: {
+        Row: {
+          auth_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          pin_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          auth_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          pin_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auth_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          pin_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      check_user_account_credentials: {
+        Args: {
+          phone_param: string
+          pin_param: string
+        }
+        Returns: string
+      }
       check_user_credentials: {
         Args: {
           phone_param: string

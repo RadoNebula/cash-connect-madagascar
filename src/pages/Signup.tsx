@@ -47,15 +47,15 @@ const Signup = () => {
     try {
       console.log("Starting signup process for:", { name, phone: formattedPhone });
       
-      // Check if profile already exists with this phone number
-      const { data: existingProfile, error: profileCheckError } = await supabase
-        .from('profiles')
+      // Check if user account already exists with this phone number
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from('user_accounts')
         .select('*')
         .eq('phone', formattedPhone)
         .maybeSingle();
         
-      if (existingProfile) {
-        console.log("Profile already exists:", existingProfile);
+      if (existingUser) {
+        console.log("User account already exists:", existingUser);
         setError("Un compte avec ce numéro de téléphone existe déjà");
         setProcessingSignup(false);
         return;
@@ -64,7 +64,7 @@ const Signup = () => {
       // Generate email from phone (for auth)
       const generatedEmail = `user_${formattedPhone}@cashpoint.app`;
       
-      console.log("Creating user with auth and profile data...");
+      console.log("Creating user with auth and user account data...");
       
       // Create user with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -88,40 +88,39 @@ const Signup = () => {
       
       console.log("Auth signup success, user ID:", authData.user?.id);
       
-      // Wait a moment to ensure trigger has time to create profile
+      // Wait a moment to ensure trigger has time to create user account
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Verify the profile was created
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+      // Verify the user account was created
+      const { data: userData, error: userError } = await supabase
+        .from('user_accounts')
         .select('*')
         .eq('phone', formattedPhone)
         .maybeSingle();
         
-      if (profileError || !profileData) {
-        console.error("Profile verification error:", profileError);
-        console.log("Manually creating profile...");
+      if (userError || !userData) {
+        console.error("User account verification error:", userError);
+        console.log("Manually creating user account...");
         
-        // If profile creation failed via trigger, try direct insertion
+        // If user account creation failed via trigger, try direct insertion
         if (authData.user) {
           const { error: insertError } = await supabase
-            .from('profiles')
+            .from('user_accounts')
             .insert({
-              id: authData.user.id,
+              auth_id: authData.user.id,
               name: name,
               phone: formattedPhone,
-              email: generatedEmail,
-              pin_hash: null // We can't hash it here, but the trigger should have done it
+              email: generatedEmail
             });
             
           if (insertError) {
-            console.error("Manual profile creation error:", insertError);
+            console.error("Manual user account creation error:", insertError);
           } else {
-            console.log("Manual profile creation successful");
+            console.log("Manual user account creation successful");
           }
         }
       } else {
-        console.log("Profile verified successfully:", profileData);
+        console.log("User account verified successfully:", userData);
       }
       
       // Sign in the user

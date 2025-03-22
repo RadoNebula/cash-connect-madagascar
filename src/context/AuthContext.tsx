@@ -58,13 +58,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserData = async (userId: string) => {
     try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+      // First try to get user from user_accounts table (new table)
+      const { data: userData, error: userError } = await supabase
+        .from('user_accounts')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('auth_id', userId)
+        .maybeSingle();
 
-      if (profileError) throw profileError;
+      if (userError && userError.code !== 'PGRST116') {
+        throw userError;
+      }
+
+      // If no user in user_accounts, try to get from profiles table (old table)
+      let userProfile = userData;
+      if (!userProfile) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (profileError && profileError.code !== 'PGRST116') {
+          throw profileError;
+        }
+        userProfile = profileData;
+      }
+
+      if (!userProfile) {
+        console.error("No user or profile found for ID:", userId);
+        return null;
+      }
 
       const { data: companyData, error: companyError } = await supabase
         .from('company_settings')
@@ -84,9 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const userData: User = {
         id: userId,
-        name: profileData.name || '',
-        phone: profileData.phone || '',
-        email: profileData.email || '',
+        name: userProfile.name || '',
+        phone: userProfile.phone || '',
+        email: userProfile.email || '',
         balances: {
           mvola: 0,
           orangeMoney: 0,
@@ -159,7 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // First, check if we can authenticate directly with phone and PIN using our custom function
       const { data: directAuthData, error: directAuthError } = await supabase.rpc(
-        'check_user_credentials',
+        'check_user_account_credentials',
         { phone_param: phone, pin_param: pin }
       );
       
@@ -429,17 +452,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!user || !supabaseUser) return false;
       
       if (updates.name !== undefined || updates.email !== undefined || updates.phone !== undefined) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            name: updates.name || user.name,
-            email: updates.email || user.email,
-            phone: updates.phone || user.phone,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
+        // First check if user exists in user_accounts
+        const { data: userData, error: userCheckError } = await supabase
+          .from('user_accounts')
+          .select('*')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+          
+        if (userData) {
+          // Update user_accounts table
+          const { error: userUpdateError } = await supabase
+            .from('user_accounts')
+            .update({
+              name: updates.name || user.name,
+              email: updates.email || user.email,
+              phone: updates.phone || user.phone,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('auth_id', user.id);
 
-        if (profileError) throw profileError;
+          if (userUpdateError) throw userUpdateError;
+        } else {
+          // Fall back to updating profiles table
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              name: updates.name || user.name,
+              email: updates.email || user.email,
+              phone: updates.phone || user.phone,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
+
+          if (profileError) throw profileError;
+        }
       }
 
       if (updates.company) {
@@ -483,6 +529,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Error updating user:", error);
       return false;
     }
+  };
+
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('Logout error:', error);
+      toast.error("Erreur lors de la déconnexion");
+    } else {
+      setUser(null);
+      toast.success("Déconnexion réussie");
+    }
+  };
+
+  const addContact = (contact: Omit<Contact, 'id'>) => {
+    if (!user) return;
+    
+    const newContact: Contact = {
+      ...contact,
+      id: `contact-${Date.now()}`,
+    };
+    
+    const updatedUser: User = {
+      ...user,
+      contacts: [...user.contacts, newContact],
+    };
+    
+    setUser(updatedUser);
+    toast.success(`Contact ${contact.name} ajouté!`);
+  };
+
+  const updateContact = (id: string, updates: Partial<Omit<Contact, 'id'>>) => {
+    if (!user) return;
+    
+    const updatedContacts = user.contacts.map(contact => 
+      contact.id === id ? { ...contact, ...updates } : contact
+    );
+    
+    const updatedUser: User = {
+      ...user,
+      contacts: updatedContacts,
+    };
+    
+    setUser(updatedUser);
+    toast.success("Contact mis à jour!");
+  };
+
+  const removeContact = (id: string) => {
+    if (!user) return;
+    
+    const updatedContacts = user.contacts.filter(contact => contact.id !== id);
+    
+    const updatedUser: User = {
+      ...user,
+      contacts: updatedContacts,
+    };
+    
+    setUser(updatedUser);
+    toast.success("Contact supprimé!");
   };
 
   return (
