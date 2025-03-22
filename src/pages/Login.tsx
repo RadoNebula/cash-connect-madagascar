@@ -54,6 +54,8 @@ const Login = () => {
         return;
       }
       
+      console.log("Profile found:", profileData);
+      
       // Check credentials with our custom RPC function
       const { data: directAuthData, error: directAuthError } = await supabase.rpc(
         'check_user_credentials',
@@ -71,6 +73,7 @@ const Login = () => {
       
       console.log("User found via direct check, proceeding with login");
       
+      // Use the login function from AuthContext
       const success = await login(formattedPhone, pin);
       
       if (success) {

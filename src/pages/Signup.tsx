@@ -47,7 +47,7 @@ const Signup = () => {
     try {
       console.log("Starting signup process for:", { name, phone: formattedPhone });
       
-      // First check if profile already exists with this phone number
+      // Check if profile already exists with this phone number
       const { data: existingProfile, error: profileCheckError } = await supabase
         .from('profiles')
         .select('*')
@@ -55,40 +55,89 @@ const Signup = () => {
         .maybeSingle();
         
       if (existingProfile) {
+        console.log("Profile already exists:", existingProfile);
         setError("Un compte avec ce numéro de téléphone existe déjà");
         setProcessingSignup(false);
         return;
       }
       
-      // Use signup function from AuthContext with all required data
-      const { data, error } = await signup(name, formattedPhone, pin);
+      // Generate email from phone (for auth)
+      const generatedEmail = `user_${formattedPhone}@cashpoint.app`;
       
-      if (error) {
-        console.error("Signup error:", error);
-        throw error;
+      console.log("Creating user with auth and profile data...");
+      
+      // Create user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: generatedEmail,
+        password: pin,
+        options: {
+          data: {
+            name: name,
+            phone: formattedPhone,
+            pin: pin
+          }
+        }
+      });
+      
+      if (authError) {
+        console.error("Auth signup error:", authError);
+        setError("Erreur lors de la création du compte: " + authError.message);
+        setProcessingSignup(false);
+        return;
       }
       
-      console.log("Signup success, data:", data);
+      console.log("Auth signup success, user ID:", authData.user?.id);
       
-      // Wait a moment to ensure database operations complete
+      // Wait a moment to ensure trigger has time to create profile
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Verify the user was created in the profiles table
+      // Verify the profile was created
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('phone', formattedPhone)
         .maybeSingle();
         
-      if (profileError) {
+      if (profileError || !profileData) {
         console.error("Profile verification error:", profileError);
-        // Even if verification fails, we'll continue if signup was successful
+        console.log("Manually creating profile...");
+        
+        // If profile creation failed via trigger, try direct insertion
+        if (authData.user) {
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              name: name,
+              phone: formattedPhone,
+              email: generatedEmail,
+              pin_hash: null // We can't hash it here, but the trigger should have done it
+            });
+            
+          if (insertError) {
+            console.error("Manual profile creation error:", insertError);
+          } else {
+            console.log("Manual profile creation successful");
+          }
+        }
       } else {
-        console.log("Profile created successfully:", profileData);
+        console.log("Profile verified successfully:", profileData);
       }
       
-      toast.success("Compte créé avec succès!");
-      navigate("/");
+      // Sign in the user
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: generatedEmail,
+        password: pin
+      });
+      
+      if (signInError) {
+        console.error("Auto sign-in error:", signInError);
+        toast.success("Compte créé avec succès! Veuillez vous connecter.");
+        navigate("/login");
+      } else {
+        toast.success("Compte créé et connecté avec succès!");
+        navigate("/");
+      }
     } catch (err) {
       console.error("Signup error:", err);
       setError("Une erreur s'est produite lors de la création du compte. Veuillez réessayer.");
