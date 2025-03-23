@@ -29,10 +29,6 @@ const TransactionsPage = () => {
     }
   }, [params.type]);
 
-  if (!user) {
-    return null;
-  }
-
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     if (value !== "session" && !sessionStarted) {

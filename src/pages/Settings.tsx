@@ -33,57 +33,76 @@ const Settings = () => {
   const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
   
+  // Mock user data if no real user is logged in
+  const mockUser = {
+    id: "mock-user",
+    name: "Utilisateur Demo",
+    phone: "034 00 000 00",
+    email: "user@example.com",
+    company: {
+      name: "Ma Boutique",
+      address: "Antananarivo, Madagascar",
+      phone: "034 00 000 00",
+      email: "boutique@example.com"
+    },
+    receiptSettings: {
+      showLogo: true,
+      showContact: true,
+      showCompanyInfo: true,
+      footerText: "Merci de votre confiance!"
+    }
+  };
+  
+  const activeUser = user || mockUser;
+  
   // User profile settings
-  const [name, setName] = useState(user?.name || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [phone, setPhone] = useState(user?.phone || "");
+  const [name, setName] = useState(activeUser?.name || "");
+  const [email, setEmail] = useState(activeUser?.email || "");
+  const [phone, setPhone] = useState(activeUser?.phone || "");
   
   // Company settings
-  const [companyName, setCompanyName] = useState(user?.company?.name || "");
-  const [companyAddress, setCompanyAddress] = useState(user?.company?.address || "");
-  const [companyPhone, setCompanyPhone] = useState(user?.company?.phone || "");
-  const [companyEmail, setCompanyEmail] = useState(user?.company?.email || "");
+  const [companyName, setCompanyName] = useState(activeUser?.company?.name || "");
+  const [companyAddress, setCompanyAddress] = useState(activeUser?.company?.address || "");
+  const [companyPhone, setCompanyPhone] = useState(activeUser?.company?.phone || "");
+  const [companyEmail, setCompanyEmail] = useState(activeUser?.company?.email || "");
   
   // Receipt settings
-  const [showLogo, setShowLogo] = useState(user?.receiptSettings?.showLogo !== false);
-  const [showContact, setShowContact] = useState(user?.receiptSettings?.showContact !== false);
-  const [showCompanyInfo, setShowCompanyInfo] = useState(user?.receiptSettings?.showCompanyInfo !== false);
-  const [footerText, setFooterText] = useState(user?.receiptSettings?.footerText || "Merci de votre confiance!");
+  const [showLogo, setShowLogo] = useState(activeUser?.receiptSettings?.showLogo !== false);
+  const [showContact, setShowContact] = useState(activeUser?.receiptSettings?.showContact !== false);
+  const [showCompanyInfo, setShowCompanyInfo] = useState(activeUser?.receiptSettings?.showCompanyInfo !== false);
+  const [footerText, setFooterText] = useState(activeUser?.receiptSettings?.footerText || "Merci de votre confiance!");
 
   // Update form values when user changes
   useEffect(() => {
-    if (user) {
-      setName(user.name || "");
-      setEmail(user.email || "");
-      setPhone(user.phone || "");
+    if (activeUser) {
+      setName(activeUser.name || "");
+      setEmail(activeUser.email || "");
+      setPhone(activeUser.phone || "");
       
-      setCompanyName(user.company?.name || "");
-      setCompanyAddress(user.company?.address || "");
-      setCompanyPhone(user.company?.phone || "");
-      setCompanyEmail(user.company?.email || "");
+      setCompanyName(activeUser.company?.name || "");
+      setCompanyAddress(activeUser.company?.address || "");
+      setCompanyPhone(activeUser.company?.phone || "");
+      setCompanyEmail(activeUser.company?.email || "");
       
-      setShowLogo(user.receiptSettings?.showLogo !== false);
-      setShowContact(user.receiptSettings?.showContact !== false);
-      setShowCompanyInfo(user.receiptSettings?.showCompanyInfo !== false);
-      setFooterText(user.receiptSettings?.footerText || "Merci de votre confiance!");
+      setShowLogo(activeUser.receiptSettings?.showLogo !== false);
+      setShowContact(activeUser.receiptSettings?.showContact !== false);
+      setShowCompanyInfo(activeUser.receiptSettings?.showCompanyInfo !== false);
+      setFooterText(activeUser.receiptSettings?.footerText || "Merci de votre confiance!");
     }
-  }, [user]);
-
-  if (!user) {
-    navigate("/login");
-    return null;
-  }
+  }, [activeUser]);
 
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      await updateUser({
-        ...user,
-        name,
-        email,
-        phone
-      });
-      toast.success("Profil mis à jour avec succès");
+      if (user) {
+        await updateUser({
+          ...user,
+          name,
+          email,
+          phone
+        });
+      }
+      toast.success("Profil mis à jour avec succès" + (user ? "" : " (mode démo)"));
     } catch (error) {
       toast.error("Erreur lors de la mise à jour du profil");
     } finally {
@@ -94,16 +113,18 @@ const Settings = () => {
   const handleSaveCompany = async () => {
     setLoading(true);
     try {
-      await updateUser({
-        ...user,
-        company: {
-          name: companyName,
-          address: companyAddress,
-          phone: companyPhone,
-          email: companyEmail
-        }
-      });
-      toast.success("Informations de l'entreprise mises à jour");
+      if (user) {
+        await updateUser({
+          ...user,
+          company: {
+            name: companyName,
+            address: companyAddress,
+            phone: companyPhone,
+            email: companyEmail
+          }
+        });
+      }
+      toast.success("Informations de l'entreprise mises à jour" + (user ? "" : " (mode démo)"));
     } catch (error) {
       toast.error("Erreur lors de la mise à jour des informations");
     } finally {
@@ -114,16 +135,18 @@ const Settings = () => {
   const handleSaveReceiptSettings = async () => {
     setLoading(true);
     try {
-      await updateUser({
-        ...user,
-        receiptSettings: {
-          showLogo,
-          showContact,
-          showCompanyInfo,
-          footerText
-        }
-      });
-      toast.success("Paramètres d'impression mis à jour");
+      if (user) {
+        await updateUser({
+          ...user,
+          receiptSettings: {
+            showLogo,
+            showContact,
+            showCompanyInfo,
+            footerText
+          }
+        });
+      }
+      toast.success("Paramètres d'impression mis à jour" + (user ? "" : " (mode démo)"));
     } catch (error) {
       toast.error("Erreur lors de la mise à jour des paramètres");
     } finally {

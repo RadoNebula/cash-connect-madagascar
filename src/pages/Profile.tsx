@@ -11,9 +11,20 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Profile = () => {
   const { user, updateUser, logout } = useAuth();
-  const [name, setName] = useState(user?.name || "");
-  const [phone, setPhone] = useState(user?.phone || "");
-  const [email, setEmail] = useState(user?.email || "");
+  
+  // Mock user data if no real user is logged in
+  const mockUser = {
+    id: "mock-user",
+    name: "Utilisateur Demo",
+    phone: "034 00 000 00",
+    email: "user@example.com"
+  };
+  
+  const activeUser = user || mockUser;
+  
+  const [name, setName] = useState(activeUser?.name || "");
+  const [phone, setPhone] = useState(activeUser?.phone || "");
+  const [email, setEmail] = useState(activeUser?.email || "");
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -21,30 +32,35 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setName(user.name || "");
-      setPhone(user.phone || "");
-      setEmail(user.email || "");
+    if (activeUser) {
+      setName(activeUser.name || "");
+      setPhone(activeUser.phone || "");
+      setEmail(activeUser.email || "");
     }
-  }, [user]);
+  }, [activeUser]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
     
     setLoading(true);
     
     try {
-      const success = await updateUser({
-        name,
-        email,
-        phone: user.phone // Not allowing phone update as it's used for login
-      });
-      
-      if (success) {
-        toast.success("Profil mis à jour avec succès");
+      // If a real user is logged in, try to update profile
+      if (user) {
+        const success = await updateUser({
+          name,
+          email,
+          phone: user.phone // Not allowing phone update as it's used for login
+        });
+        
+        if (success) {
+          toast.success("Profil mis à jour avec succès");
+        } else {
+          toast.error("Erreur lors de la mise à jour du profil");
+        }
       } else {
-        toast.error("Erreur lors de la mise à jour du profil");
+        // Just show success toast for demo mode
+        toast.success("Profil mis à jour avec succès (mode démo)");
       }
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -75,14 +91,17 @@ const Profile = () => {
     setLoading(true);
     
     try {
-      // Update password in Supabase Auth
-      const { error } = await supabase.auth.updateUser({
-        password: newPin
-      });
+      // If a real user is logged in, try to update PIN
+      if (user) {
+        // Update password in Supabase Auth
+        const { error } = await supabase.auth.updateUser({
+          password: newPin
+        });
+        
+        if (error) throw error;
+      }
       
-      if (error) throw error;
-      
-      toast.success("PIN mis à jour avec succès");
+      toast.success("PIN mis à jour avec succès" + (user ? "" : " (mode démo)"));
       setCurrentPin("");
       setNewPin("");
       setConfirmPin("");
@@ -93,8 +112,6 @@ const Profile = () => {
       setLoading(false);
     }
   };
-
-  if (!user) return null;
 
   return (
     <AppShell>
