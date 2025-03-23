@@ -14,53 +14,46 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/AppShell";
 import { ServiceIcon, TransactionIcon } from "@/components/ServiceIcon";
-import { useAuth } from "@/context/AuthContext";
 import { useTransactions, MobileMoneyService, Transaction } from "@/context/TransactionContext";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { getRecentTransactions } = useTransactions();
+  const { 
+    getRecentTransactions, 
+    getServiceBalance, 
+    getCashBalance,
+    sessionStarted,
+    isLoading 
+  } = useTransactions();
   
   const recentTransactions = getRecentTransactions(5);
   
-  const mockUser = {
-    id: "mock-user",
-    name: "Utilisateur",
-    email: "user@example.com",
-    balances: {
-      mvola: 150000,
-      orangeMoney: 75000,
-      airtelMoney: 50000
-    }
-  };
+  const userName = "Utilisateur";
   
-  const activeUser = user || mockUser;
-
-  const totalBalance = 
-    activeUser.balances.mvola + 
-    activeUser.balances.orangeMoney + 
-    activeUser.balances.airtelMoney;
+  // Get real balances from the transaction context
+  const cashBalance = getCashBalance();
+  const mvolaBalance = getServiceBalance('mvola');
+  const orangeMoneyBalance = getServiceBalance('orangeMoney');
+  const airtelMoneyBalance = getServiceBalance('airtelMoney');
+  
+  const totalBalance = mvolaBalance + orangeMoneyBalance + airtelMoneyBalance;
 
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString() + " Ar";
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  };
+  useEffect(() => {
+    if (!sessionStarted && !isLoading) {
+      navigate("/transactions");
+    }
+  }, [sessionStarted, isLoading, navigate]);
 
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-8 md:pl-56">
         <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Bonjour, {activeUser.name.split(' ')[0]}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Bonjour, {userName}</h1>
             <p className="text-muted-foreground">
               Bienvenue sur votre tableau de bord Cash Point
             </p>
@@ -94,7 +87,7 @@ const Index = () => {
               <ServiceIcon service="mvola" size={20} />
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(activeUser.balances.mvola)}</div>
+              <div className="text-xl font-bold">{formatCurrency(mvolaBalance)}</div>
             </CardContent>
           </Card>
 
@@ -103,7 +96,7 @@ const Index = () => {
               <ServiceIcon service="orangeMoney" size={20} />
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(activeUser.balances.orangeMoney)}</div>
+              <div className="text-xl font-bold">{formatCurrency(orangeMoneyBalance)}</div>
             </CardContent>
           </Card>
 
@@ -112,7 +105,7 @@ const Index = () => {
               <ServiceIcon service="airtelMoney" size={20} />
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(activeUser.balances.airtelMoney)}</div>
+              <div className="text-xl font-bold">{formatCurrency(airtelMoneyBalance)}</div>
             </CardContent>
           </Card>
         </div>

@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
 import { Logo } from "./Logo";
 
 interface AppShellProps {
@@ -22,7 +21,6 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
 
   const navItems = [
     { icon: HomeIcon, label: "Accueil", path: "/" },
@@ -37,7 +35,6 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   const handleLogout = () => {
-    logout();
     navigate("/login");
   };
 

@@ -1,7 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
-import { useAuth } from './AuthContext';
 import { supabase } from "@/integrations/supabase/client";
 
 export type TransactionType = 'deposit' | 'withdrawal' | 'transfer';
@@ -62,16 +61,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   });
   const [sessionStarted, setSessionStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+  const mockUserId = "mock-user-id"; // Mock user ID for development without auth
 
   // Fetch transactions and active session from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      
       setIsLoading(true);
       
       try {
@@ -79,7 +73,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const { data: transactionsData, error: transactionsError } = await supabase
           .from('transactions')
           .select('*')
-          .eq('user_id', user.id)
           .order('date', { ascending: false });
 
         if (transactionsError) throw transactionsError;
@@ -107,11 +100,10 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const { data: sessionData, error: sessionError } = await supabase
           .from('session_balances')
           .select('*')
-          .eq('user_id', user.id)
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (sessionError && sessionError.code !== 'PGRST116') {
           throw sessionError;
@@ -137,7 +129,63 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     fetchData();
-  }, [user]);
+
+    // Set up realtime subscription for session_balances
+    const balancesChannel = supabase
+      .channel('public:session_balances')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'session_balances' }, 
+        (payload) => {
+          if (payload.new && payload.eventType !== 'DELETE') {
+            const newData = payload.new as any;
+            if (newData.is_active) {
+              setBalances({
+                cash: Number(newData.cash),
+                mvola: Number(newData.mvola),
+                orangeMoney: Number(newData.orange_money),
+                airtelMoney: Number(newData.airtel_money)
+              });
+              setSessionStarted(true);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Set up realtime subscription for transactions
+    const transactionsChannel = supabase
+      .channel('public:transactions')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'transactions' }, 
+        (payload) => {
+          if (payload.new) {
+            const newTx = payload.new as any;
+            const formattedTx: Transaction = {
+              id: newTx.id,
+              type: newTx.type as TransactionType,
+              service: newTx.service as MobileMoneyService,
+              amount: Number(newTx.amount),
+              fees: Number(newTx.fees),
+              phoneNumber: newTx.phone_number,
+              recipient: newTx.recipient_name && newTx.recipient_phone ? {
+                name: newTx.recipient_name,
+                phone: newTx.recipient_phone,
+              } : undefined,
+              description: newTx.description,
+              date: new Date(newTx.date),
+              status: newTx.status as 'completed' | 'pending' | 'failed',
+            };
+            setTransactions(prev => [formattedTx, ...prev]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(balancesChannel);
+      supabase.removeChannel(transactionsChannel);
+    };
+  }, []);
 
   const calculateFees = (type: TransactionType, amount: number): number => {
     if (type === 'deposit') return 0;
@@ -147,24 +195,20 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const startSession = async (initialBalances: SessionBalances): Promise<boolean> => {
-    if (!user) {
-      toast.error("Veuillez vous connecter pour effectuer cette opération");
-      return false;
-    }
-    
-    if (sessionStarted) {
-      toast.error("Une session est déjà en cours");
-      return false;
-    }
-    
     setIsLoading(true);
     
     try {
+      // First deactivate any active sessions
+      await supabase
+        .from('session_balances')
+        .update({ is_active: false })
+        .eq('is_active', true);
+
       // Insert new session balances in Supabase
       const { data, error } = await supabase
         .from('session_balances')
         .insert({
-          user_id: user.id,
+          user_id: mockUserId,
           cash: initialBalances.cash,
           mvola: initialBalances.mvola,
           orange_money: initialBalances.orangeMoney,
@@ -197,19 +241,13 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const depositMoney = async (service: MobileMoneyService, amount: number, phoneNumber: string): Promise<Transaction | false> => {
-    if (!user) {
-      toast.error("Veuillez vous connecter pour effectuer cette opération");
-      return false;
-    }
-
-    if (!sessionStarted) {
-      toast.error("Veuillez d'abord initialiser les soldes de départ de la session");
-      return false;
-    }
-    
     setIsLoading(true);
     
     try {
+      if (!sessionStarted) {
+        throw new Error("Veuillez d'abord initialiser les soldes de départ de la session");
+      }
+      
       if (!phoneNumber.trim()) {
         throw new Error("Le numéro de téléphone est requis");
       }
@@ -228,7 +266,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const { data, error } = await supabase
         .from('transactions')
         .insert({
-          user_id: user.id,
+          user_id: mockUserId,
           type: 'deposit',
           service,
           amount,
@@ -251,7 +289,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           orange_money: service === 'orangeMoney' ? updatedBalances.orangeMoney : balances.orangeMoney,
           airtel_money: service === 'airtelMoney' ? updatedBalances.airtelMoney : balances.airtelMoney
         })
-        .eq('user_id', user.id)
         .eq('is_active', true);
 
       if (updateError) throw updateError;
@@ -267,7 +304,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         status: 'completed',
       };
       
-      setTransactions(prev => [newTransaction, ...prev]);
       setBalances(updatedBalances);
       toast.success(`Dépôt de ${amount.toLocaleString()} Ar effectué avec succès!`);
       return newTransaction;
@@ -284,19 +320,13 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const withdrawMoney = async (service: MobileMoneyService, amount: number, phoneNumber: string): Promise<Transaction | false> => {
-    if (!user) {
-      toast.error("Veuillez vous connecter pour effectuer cette opération");
-      return false;
-    }
-
-    if (!sessionStarted) {
-      toast.error("Veuillez d'abord initialiser les soldes de départ de la session");
-      return false;
-    }
-    
     setIsLoading(true);
     
     try {
+      if (!sessionStarted) {
+        throw new Error("Veuillez d'abord initialiser les soldes de départ de la session");
+      }
+      
       if (!phoneNumber.trim()) {
         throw new Error("Le numéro de téléphone est requis");
       }
@@ -316,7 +346,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const { data, error } = await supabase
         .from('transactions')
         .insert({
-          user_id: user.id,
+          user_id: mockUserId,
           type: 'withdrawal',
           service,
           amount,
@@ -339,7 +369,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           orange_money: service === 'orangeMoney' ? updatedBalances.orangeMoney : balances.orangeMoney,
           airtel_money: service === 'airtelMoney' ? updatedBalances.airtelMoney : balances.airtelMoney
         })
-        .eq('user_id', user.id)
         .eq('is_active', true);
 
       if (updateError) throw updateError;
@@ -355,7 +384,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         status: 'completed',
       };
       
-      setTransactions(prev => [newTransaction, ...prev]);
       setBalances(updatedBalances);
       toast.success(`Retrait de ${amount.toLocaleString()} Ar effectué avec succès!`);
       return newTransaction;
@@ -377,19 +405,13 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     recipient: { name: string; phone: string },
     description?: string
   ): Promise<Transaction | false> => {
-    if (!user) {
-      toast.error("Veuillez vous connecter pour effectuer cette opération");
-      return false;
-    }
-
-    if (!sessionStarted) {
-      toast.error("Veuillez d'abord initialiser les soldes de départ de la session");
-      return false;
-    }
-    
     setIsLoading(true);
     
     try {
+      if (!sessionStarted) {
+        throw new Error("Veuillez d'abord initialiser les soldes de départ de la session");
+      }
+      
       const fees = calculateFees('transfer', amount);
       
       const updatedBalances = { ...balances };
@@ -405,7 +427,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const { data, error } = await supabase
         .from('transactions')
         .insert({
-          user_id: user.id,
+          user_id: mockUserId,
           type: 'transfer',
           service,
           amount,
@@ -430,7 +452,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           orange_money: service === 'orangeMoney' ? updatedBalances.orangeMoney : balances.orangeMoney,
           airtel_money: service === 'airtelMoney' ? updatedBalances.airtelMoney : balances.airtelMoney
         })
-        .eq('user_id', user.id)
         .eq('is_active', true);
 
       if (updateError) throw updateError;
@@ -447,7 +468,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         status: 'completed',
       };
       
-      setTransactions(prev => [newTransaction, ...prev]);
       setBalances(updatedBalances);
       toast.success(`Transfert de ${amount.toLocaleString()} Ar vers ${recipient.name} effectué avec succès!`);
       return newTransaction;
