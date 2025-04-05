@@ -37,6 +37,13 @@ const SessionBalanceForm = () => {
       // Show a loading toast
       const toastId = toast.loading("Démarrage de la session en cours...");
 
+      console.log("Sending session balance values:", {
+        cash: cashValue,
+        mvola: mvolaValue,
+        orangeMoney: orangeMoneyValue,
+        airtelMoney: airtelMoneyValue
+      });
+
       const result = await startSession({
         cash: cashValue,
         mvola: mvolaValue,
@@ -47,8 +54,11 @@ const SessionBalanceForm = () => {
       // Dismiss the loading toast
       toast.dismiss(toastId);
 
-      if (!result) {
-        setError("Une erreur est survenue lors de l'initialisation des soldes. Veuillez réessayer.");
+      if (!result.success) {
+        setError(result.error || "Une erreur est survenue lors de l'initialisation des soldes. Veuillez réessayer.");
+        toast.error(result.error || "Erreur lors du démarrage de la session");
+      } else {
+        toast.success("Session démarrée avec succès!");
       }
     } catch (error) {
       console.error("Session start error:", error);

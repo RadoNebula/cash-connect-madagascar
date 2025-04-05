@@ -28,11 +28,16 @@ export type SessionBalances = {
   airtelMoney: number;
 };
 
+type SessionResult = {
+  success: boolean;
+  error?: string;
+};
+
 type TransactionContextType = {
   transactions: Transaction[];
   isLoading: boolean;
   sessionStarted: boolean;
-  startSession: (balances: SessionBalances) => Promise<boolean>;
+  startSession: (balances: SessionBalances) => Promise<SessionResult>;
   depositMoney: (service: MobileMoneyService, amount: number, phoneNumber: string) => Promise<Transaction | false>;
   withdrawMoney: (service: MobileMoneyService, amount: number, phoneNumber: string) => Promise<Transaction | false>;
   transferMoney: (
@@ -50,6 +55,14 @@ type TransactionContextType = {
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
+// Define the calculateFees function once, at the top level
+const calculateFees = (type: TransactionType, amount: number): number => {
+  if (type === 'deposit') return 0;
+  if (type === 'withdrawal') return Math.max(300, amount * 0.02);
+  if (type === 'transfer') return Math.max(200, amount * 0.015);
+  return 0;
+};
+
 export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balances, setBalances] = useState<SessionBalances>({
@@ -63,14 +76,6 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   
   // Use a valid UUID format for the mock user ID
   const mockUserId = "00000000-0000-0000-0000-000000000000"; 
-
-  // Define the calculateFees function once, at the top level
-  const calculateFees = (type: TransactionType, amount: number): number => {
-    if (type === 'deposit') return 0;
-    if (type === 'withdrawal') return Math.max(300, amount * 0.02);
-    if (type === 'transfer') return Math.max(200, amount * 0.015);
-    return 0;
-  };
 
   // Fetch transactions and active session from Supabase
   useEffect(() => {
@@ -196,15 +201,25 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
   }, []);
 
-  const startSession = async (initialBalances: SessionBalances): Promise<boolean> => {
+  const startSession = async (initialBalances: SessionBalances): Promise<SessionResult> => {
     setIsLoading(true);
     
     try {
+      console.log("Starting session with balances:", initialBalances);
+      
       // First deactivate any active sessions
-      await supabase
+      const { error: deactivateError } = await supabase
         .from('session_balances')
         .update({ is_active: false })
         .eq('is_active', true);
+        
+      if (deactivateError) {
+        console.error("Error deactivating existing sessions:", deactivateError);
+        return { 
+          success: false, 
+          error: `Erreur lors de la désactivation des sessions existantes: ${deactivateError.message}` 
+        };
+      }
 
       // Insert new session balances in Supabase
       const { data, error } = await supabase
@@ -219,16 +234,31 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         })
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error starting session:", error);
+        let errorMessage = "Erreur lors du démarrage de la session.";
+        
+        if (error.code === '42501') {
+          errorMessage = "Erreur de permission: Vous n'avez pas les droits nécessaires pour cette action.";
+        } else if (error.message) {
+          errorMessage = `Erreur: ${error.message}`;
+        }
+        
+        return { success: false, error: errorMessage };
+      }
       
       setBalances(initialBalances);
       setSessionStarted(true);
-      toast.success("Session démarrée avec succès!");
-      return true;
+      return { success: true };
     } catch (error) {
       console.error('Error starting session:', error);
-      toast.error("Erreur lors du démarrage de la session");
-      return false;
+      let errorMessage = "Erreur inconnue lors du démarrage de la session.";
+      
+      if (error instanceof Error) {
+        errorMessage = `Erreur: ${error.message}`;
+      }
+      
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
