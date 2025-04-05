@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,6 @@ import { ServiceIcon } from "@/components/ServiceIcon";
 import { useTransactions } from "@/context/TransactionContext";
 import { InfoIcon, CoinsIcon, ArrowRightIcon, AlertCircleIcon } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 const SessionBalanceForm = () => {
   const { startSession, sessionStarted, isLoading } = useTransactions();
@@ -17,27 +16,6 @@ const SessionBalanceForm = () => {
   const [airtelMoneyBalance, setAirtelMoneyBalance] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [authStatus, setAuthStatus] = useState<string>("checking");
-
-  // Check authentication status on component mount
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setAuthStatus(session ? "authenticated" : "unauthenticated");
-        console.log("Auth status:", session ? "authenticated" : "unauthenticated");
-        
-        if (session) {
-          console.log("User ID:", session.user.id);
-        }
-      } catch (error) {
-        console.error("Error checking auth status:", error);
-        setAuthStatus("error");
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
 
   const handleAmountChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "");
@@ -59,21 +37,12 @@ const SessionBalanceForm = () => {
       // Show a loading toast
       const toastId = toast.loading("Démarrage de la session en cours...");
 
-      console.log("Auth status before sending session data:", authStatus);
       console.log("Sending session balance values:", {
         cash: cashValue,
         mvola: mvolaValue,
         orangeMoney: orangeMoneyValue,
         airtelMoney: airtelMoneyValue
       });
-
-      // Check current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.warn("No active session found, this may cause permission issues");
-      } else {
-        console.log("Active session with user ID:", session.user.id);
-      }
 
       const result = await startSession({
         cash: cashValue,
@@ -108,16 +77,6 @@ const SessionBalanceForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {authStatus === "unauthenticated" && (
-        <div className="rounded-md bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 flex items-start gap-3">
-          <InfoIcon className="h-5 w-5 shrink-0 mt-0.5 text-amber-500" />
-          <div>
-            <p className="font-medium">Attention</p>
-            <p>Vous n'êtes pas connecté(e). Cela pourrait causer des problèmes d'autorisation.</p>
-          </div>
-        </div>
-      )}
-
       {error && (
         <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive flex items-start gap-3">
           <AlertCircleIcon className="h-5 w-5 shrink-0 mt-0.5" />
