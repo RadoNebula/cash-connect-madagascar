@@ -61,7 +61,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   });
   const [sessionStarted, setSessionStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const mockUserId = "mock-user-id"; // Mock user ID for development without auth
+  
+  // Use a valid UUID format for the mock user ID
+  const mockUserId = "00000000-0000-0000-0000-000000000000"; 
 
   // Fetch transactions and active session from Supabase
   useEffect(() => {
@@ -495,6 +497,13 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return [...transactions]
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .slice(0, limit);
+  };
+
+  const calculateFees = (type: TransactionType, amount: number): number => {
+    if (type === 'deposit') return 0;
+    if (type === 'withdrawal') return Math.max(300, amount * 0.02);
+    if (type === 'transfer') return Math.max(200, amount * 0.015);
+    return 0;
   };
 
   return (

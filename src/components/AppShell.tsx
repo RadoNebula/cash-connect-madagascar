@@ -35,10 +35,10 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   const handleLogout = () => {
+    // For now, just redirect to login page
     navigate("/login");
   };
 
-  // Always render the full UI
   return (
     <div className="flex min-h-screen flex-col">
       {/* Top header */}
