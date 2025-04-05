@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ServiceIcon } from "@/components/ServiceIcon";
 import { useTransactions } from "@/context/TransactionContext";
-import { InfoIcon, CoinsIcon, ArrowRightIcon } from "lucide-react";
+import { InfoIcon, CoinsIcon, ArrowRightIcon, AlertCircleIcon } from "lucide-react";
+import { toast } from "sonner";
 
 const SessionBalanceForm = () => {
   const { startSession, sessionStarted, isLoading } = useTransactions();
@@ -14,6 +15,7 @@ const SessionBalanceForm = () => {
   const [orangeMoneyBalance, setOrangeMoneyBalance] = useState("");
   const [airtelMoneyBalance, setAirtelMoneyBalance] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleAmountChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "");
@@ -23,33 +25,53 @@ const SessionBalanceForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSubmitting(true);
 
+    // Parse balance values
     const cashValue = parseInt(cashBalance, 10) || 0;
     const mvolaValue = parseInt(mvolaBalance, 10) || 0;
     const orangeMoneyValue = parseInt(orangeMoneyBalance, 10) || 0;
     const airtelMoneyValue = parseInt(airtelMoneyBalance, 10) || 0;
 
     try {
-      await startSession({
+      // Show a loading toast
+      const toastId = toast.loading("Démarrage de la session en cours...");
+
+      const result = await startSession({
         cash: cashValue,
         mvola: mvolaValue,
         orangeMoney: orangeMoneyValue,
         airtelMoney: airtelMoneyValue
       });
+
+      // Dismiss the loading toast
+      toast.dismiss(toastId);
+
+      if (!result) {
+        setError("Une erreur est survenue lors de l'initialisation des soldes. Veuillez réessayer.");
+      }
     } catch (error) {
+      console.error("Session start error:", error);
+      
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError("Une erreur est survenue lors de l'initialisation des soldes");
+        setError("Une erreur est survenue lors de l'initialisation des soldes. Veuillez réessayer.");
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
+        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive flex items-start gap-3">
+          <AlertCircleIcon className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Erreur lors du démarrage de la session</p>
+            <p>{error}</p>
+          </div>
         </div>
       )}
 
@@ -66,7 +88,7 @@ const SessionBalanceForm = () => {
                 value={cashBalance ? parseInt(cashBalance).toLocaleString() : ""}
                 onChange={handleAmountChange(setCashBalance)}
                 className="pr-12"
-                disabled={sessionStarted}
+                disabled={sessionStarted || submitting}
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-muted-foreground">
                 Ar
@@ -88,7 +110,7 @@ const SessionBalanceForm = () => {
                 value={mvolaBalance ? parseInt(mvolaBalance).toLocaleString() : ""}
                 onChange={handleAmountChange(setMvolaBalance)}
                 className="pr-12"
-                disabled={sessionStarted}
+                disabled={sessionStarted || submitting}
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-muted-foreground">
                 Ar
@@ -108,7 +130,7 @@ const SessionBalanceForm = () => {
                 value={orangeMoneyBalance ? parseInt(orangeMoneyBalance).toLocaleString() : ""}
                 onChange={handleAmountChange(setOrangeMoneyBalance)}
                 className="pr-12"
-                disabled={sessionStarted}
+                disabled={sessionStarted || submitting}
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-muted-foreground">
                 Ar
@@ -128,7 +150,7 @@ const SessionBalanceForm = () => {
                 value={airtelMoneyBalance ? parseInt(airtelMoneyBalance).toLocaleString() : ""}
                 onChange={handleAmountChange(setAirtelMoneyBalance)}
                 className="pr-12"
-                disabled={sessionStarted}
+                disabled={sessionStarted || submitting}
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-muted-foreground">
                 Ar
@@ -150,9 +172,9 @@ const SessionBalanceForm = () => {
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isLoading || sessionStarted}
+          disabled={isLoading || sessionStarted || submitting}
         >
-          {isLoading ? "Traitement..." : sessionStarted ? "Session déjà démarrée" : "Démarrer la session"}
+          {submitting ? "Démarrage en cours..." : isLoading ? "Traitement..." : sessionStarted ? "Session déjà démarrée" : "Démarrer la session"}
           <ArrowRightIcon className="ml-2 h-4 w-4" />
         </Button>
       </div>
