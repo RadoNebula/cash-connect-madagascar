@@ -70,42 +70,26 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="bg-gradient-to-br from-primary/20 to-primary/10 border-primary/20">
+        <div className="grid gap-4 md:grid-cols-5">
+          <Card className="bg-gradient-to-br from-success/20 to-success/10 border-success/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-success">
+                Solde en espèces
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-success">{formatCurrency(cashBalance)}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-primary/20 to-primary/10 border-primary/20 md:col-span-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Solde Total
+                Solde Total Mobile Money
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(totalBalance)}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="service-card service-card-mvola">
-            <CardHeader className="pb-2">
-              <ServiceIcon service="mvola" size={20} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(mvolaBalance)}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="service-card service-card-orange">
-            <CardHeader className="pb-2">
-              <ServiceIcon service="orangeMoney" size={20} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(orangeMoneyBalance)}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="service-card service-card-airtel">
-            <CardHeader className="pb-2">
-              <ServiceIcon service="airtelMoney" size={20} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{formatCurrency(airtelMoneyBalance)}</div>
             </CardContent>
           </Card>
         </div>

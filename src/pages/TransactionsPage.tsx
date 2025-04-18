@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
@@ -7,13 +6,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { ServiceIcon } from "@/components/ServiceIcon";
-import { PlusIcon, MinusIcon, MoveHorizontalIcon, CoinsIcon } from "lucide-react";
+import { PlusIcon, MinusIcon, MoveHorizontalIcon, CoinsIcon, XIcon } from "lucide-react";
 import DepositForm from "@/components/transactions/DepositForm";
 import WithdrawForm from "@/components/transactions/WithdrawForm";
 import TransferForm from "@/components/transactions/TransferForm";
 import SessionBalanceForm from "@/components/transactions/SessionBalanceForm";
 import { useTransactions } from "@/context/TransactionContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const TransactionsPage = () => {
   const navigate = useNavigate();
@@ -38,14 +38,43 @@ const TransactionsPage = () => {
     }
   };
 
+  const handleCloseSession = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('session_balances')
+        .update({ is_active: false })
+        .eq('is_active', true);
+
+      if (error) throw error;
+      
+      navigate('/');
+      toast.success("Session fermée avec succès");
+    } catch (error) {
+      console.error('Error closing session:', error);
+      toast.error("Erreur lors de la fermeture de la session");
+    }
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6 md:pl-56">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">
-            Effectuez des dépôts, retraits et transferts d'argent
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+            <p className="text-muted-foreground">
+              Effectuez des dépôts, retraits et transferts d'argent
+            </p>
+          </div>
+          {sessionStarted && (
+            <Button 
+              variant="destructive" 
+              onClick={handleCloseSession}
+              className="gap-2"
+            >
+              <XIcon className="h-4 w-4" />
+              Fermer la session
+            </Button>
+          )}
         </div>
 
         <Tabs defaultValue="session" value={activeTab as string} onValueChange={handleTabChange} className="w-full">
