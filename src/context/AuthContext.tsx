@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User } from '@supabase/supabase-js'; // Import the User type from Supabase
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
@@ -56,7 +57,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
 
   const fetchUserData = async (userId: string) => {
     try {
