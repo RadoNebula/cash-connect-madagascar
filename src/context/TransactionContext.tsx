@@ -1,9 +1,10 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 
-export type TransactionType = Tables<'transactions'>;
+export type TransactionType = 'deposit' | 'withdrawal' | 'transfer';
 export type MobileMoneyService = 'mvola' | 'orangeMoney' | 'airtelMoney';
 
 export type Transaction = {
