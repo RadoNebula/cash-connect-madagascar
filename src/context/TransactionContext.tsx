@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,8 +75,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [sessionStarted, setSessionStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Use a valid UUID format for the mock user ID
-  const mockUserId = "00000000-0000-0000-0000-000000000000"; 
+  // Générer un UUID pour la session actuelle
+  const sessionId = crypto.randomUUID ? crypto.randomUUID() : 'anonymous-session-id';
 
   // Fetch transactions and active session from Supabase
   useEffect(() => {
@@ -223,11 +222,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         };
       }
 
-      // Insert new session balances in Supabase
+      // Insert new session balances in Supabase with the sessionId
       const { data, error } = await supabase
         .from('session_balances')
         .insert({
-          user_id: mockUserId,
+          user_id: sessionId, // Utiliser l'ID de session généré
           cash: initialBalances.cash,
           mvola: initialBalances.mvola,
           orange_money: initialBalances.orangeMoney,
@@ -300,7 +299,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const { data, error } = await supabase
         .from('transactions')
         .insert({
-          user_id: mockUserId,
+          user_id: sessionId, // Utiliser l'ID de session généré
           type: 'deposit',
           service,
           amount,
@@ -380,7 +379,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const { data, error } = await supabase
         .from('transactions')
         .insert({
-          user_id: mockUserId,
+          user_id: sessionId, // Utiliser l'ID de session généré
           type: 'withdrawal',
           service,
           amount,
@@ -461,7 +460,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const { data, error } = await supabase
         .from('transactions')
         .insert({
-          user_id: mockUserId,
+          user_id: sessionId, // Utiliser l'ID de session généré
           type: 'transfer',
           service,
           amount,
