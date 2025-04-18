@@ -1,8 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { Tables } from "@/integrations/supabase/types";
 
 export type User = {
   id: string;
@@ -47,6 +46,9 @@ type AuthContextType = {
   updateContact: (id: string, updates: Partial<Omit<Contact, 'id'>>) => void;
   removeContact: (id: string) => void;
   updateUser: (updates: Partial<User>) => Promise<boolean>;
+  updateProfile: (userData: Partial<Tables<'profiles'>>) => Promise<Tables<'profiles'>>;
+  updateCompanySettings: (settingsData: Partial<Tables<'company_settings'>>) => Promise<Tables<'company_settings'>>;
+  updateReceiptSettings: (settingsData: Partial<Tables<'receipt_settings'>>) => Promise<Tables<'receipt_settings'>>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserData = async (userId: string) => {
     try {
-      // First try to get user from user_accounts table (new table)
       const { data: userAccountData, error: userAccountError } = await supabase
         .from('user_accounts')
         .select('*')
@@ -69,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw userAccountError;
       }
 
-      // If no user in user_accounts, try to get from profiles table (old table)
       let userProfile = userAccountData;
       if (!userProfile) {
         const { data: profileData, error: profileError } = await supabase
@@ -82,12 +82,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw profileError;
         }
         
-        // If we get data from the profiles table, it won't have auth_id
-        // So we need to adapt it to our expected format
         if (profileData) {
           userProfile = {
             ...profileData,
-            auth_id: profileData.id, // Use the profile id as auth_id
+            auth_id: profileData.id,
           };
         }
       }
@@ -188,7 +186,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Attempting direct login with phone and PIN");
       
-      // First, check if we can authenticate directly with phone and PIN using our custom function
       const { data: directAuthData, error: directAuthError } = await supabase.rpc(
         'check_user_account_credentials',
         { phone_param: phone, pin_param: pin }
@@ -197,7 +194,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Direct auth result:", directAuthData, directAuthError);
       
       if (directAuthData) {
-        // If we found a matching user ID, log them in via Supabase auth
         const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
         
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -208,13 +204,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
           console.error("Auth error after direct verification:", error);
           
-          // If sign in fails but we verified credentials, create the auth user
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email: email,
             password: pin,
             options: {
               data: {
-                name: phone, // Use phone as temporary name
+                name: phone,
                 phone: phone,
                 pin: pin
               },
@@ -251,7 +246,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // Fall back to traditional email/password auth if direct auth fails
       const email = `user_${phone.replace(/\+|\s|-/g, '')}@cashpoint.app`;
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -460,7 +454,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!user || !supabaseUser) return false;
       
       if (updates.name !== undefined || updates.email !== undefined || updates.phone !== undefined) {
-        // First check if user exists in user_accounts
         const { data: userData, error: userCheckError } = await supabase
           .from('user_accounts')
           .select('*')
@@ -468,7 +461,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
           
         if (userData) {
-          // Update user_accounts table
           const { error: userUpdateError } = await supabase
             .from('user_accounts')
             .update({
@@ -481,7 +473,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (userUpdateError) throw userUpdateError;
         } else {
-          // Fall back to updating profiles table
           const { error: profileError } = await supabase
             .from('profiles')
             .update({
@@ -539,6 +530,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateProfile = async (userData: Partial<Tables<'profiles'>>) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(userData)
+        .eq('id', user?.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
+  const updateCompanySettings = async (settingsData: Partial<Tables<'company_settings'>>) => {
+    try {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .update(settingsData)
+        .eq('id', user?.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating company settings:', error);
+      throw error;
+    }
+  };
+
+  const updateReceiptSettings = async (settingsData: Partial<Tables<'receipt_settings'>>) => {
+    try {
+      const { data, error } = await supabase
+        .from('receipt_settings')
+        .update(settingsData)
+        .eq('id', user?.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating receipt settings:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -549,7 +591,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addContact,
       updateContact,
       removeContact,
-      updateUser
+      updateUser,
+      updateProfile,
+      updateCompanySettings,
+      updateReceiptSettings
     }}>
       {children}
     </AuthContext.Provider>

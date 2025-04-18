@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 
-export type TransactionType = 'deposit' | 'withdrawal' | 'transfer';
+export type TransactionType = Tables<'transactions'>;
 export type MobileMoneyService = 'mvola' | 'orangeMoney' | 'airtelMoney';
 
 export type Transaction = {
@@ -91,7 +92,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         if (transactionsError) throw transactionsError;
 
-        // Format the transactions from Supabase to match the Transaction type
+        // Format the transactions using the new type
         const formattedTransactions: Transaction[] = transactionsData.map(tx => ({
           id: tx.id,
           type: tx.type as TransactionType,
