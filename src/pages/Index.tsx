@@ -70,7 +70,7 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card className="bg-gradient-to-br from-success/20 to-success/10 border-success/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-success">
@@ -82,14 +82,36 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-primary/20 to-primary/10 border-primary/20 md:col-span-4">
+          <Card className="bg-gradient-to-br from-[#EF476F]/20 to-[#EF476F]/10 border-[#EF476F]/20">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Solde Total Mobile Money
+              <CardTitle className="text-sm font-medium text-[#EF476F]">
+                Solde MVola
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalBalance)}</div>
+              <div className="text-2xl font-bold text-[#EF476F]">{formatCurrency(mvolaBalance)}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-[#FF9F1C]/20 to-[#FF9F1C]/10 border-[#FF9F1C]/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-[#FF9F1C]">
+                Solde Orange Money
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-[#FF9F1C]">{formatCurrency(orangeMoneyBalance)}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-[#06D6A0]/20 to-[#06D6A0]/10 border-[#06D6A0]/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-[#06D6A0]">
+                Solde Airtel Money
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-[#06D6A0]">{formatCurrency(airtelMoneyBalance)}</div>
             </CardContent>
           </Card>
         </div>
