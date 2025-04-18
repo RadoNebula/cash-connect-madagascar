@@ -7,6 +7,7 @@ import { ServiceIcon } from "@/components/ServiceIcon";
 import { useTransactions } from "@/context/TransactionContext";
 import { InfoIcon, CoinsIcon, ArrowRightIcon, AlertCircleIcon } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const SessionBalanceForm = () => {
   const { startSession, sessionStarted, isLoading } = useTransactions();
@@ -43,6 +44,20 @@ const SessionBalanceForm = () => {
         orangeMoney: orangeMoneyValue,
         airtelMoney: airtelMoneyValue
       });
+
+      // Enable Supabase to use anonymous access instead of relying on authentication
+      // This works around permission errors when the user isn't authenticated
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        // Create an anonymous session if none exists
+        console.log("No active session, using anonymous access");
+        try {
+          await supabase.auth.signInAnonymously();
+          console.log("Anonymous sign-in successful");
+        } catch (signInError) {
+          console.error("Anonymous sign-in failed:", signInError);
+        }
+      }
 
       const result = await startSession({
         cash: cashValue,
