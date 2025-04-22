@@ -25,7 +25,8 @@ import {
   BuildingIcon, 
   PrinterIcon, 
   CheckIcon,
-  SaveIcon
+  SaveIcon, 
+  Loader2Icon
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ const Settings = () => {
   const navigate = useNavigate();
   const { user, updateUser, updateProfile, updateCompanySettings, updateReceiptSettings } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   
   // Mock user data if no real user is logged in
   const mockUser = {
@@ -96,9 +98,10 @@ const Settings = () => {
 
   const handleSaveProfile = async () => {
     setLoading(true);
+    setActiveSection('profile');
     try {
       if (user) {
-        // Utiliser directement updateProfile pour mettre à jour les données de profil
+        // S'assurer que tous les champs sont envoyés à updateProfile
         await updateProfile({
           name,
           email,
@@ -106,7 +109,7 @@ const Settings = () => {
           updated_at: new Date().toISOString()
         });
         
-        // Mettre également à jour l'état local de l'utilisateur 
+        // Mettre également à jour l'état local de l'utilisateur avec tous les champs
         await updateUser({
           ...user,
           name,
@@ -124,14 +127,16 @@ const Settings = () => {
       toast.error("Erreur lors de la mise à jour du profil");
     } finally {
       setLoading(false);
+      setActiveSection(null);
     }
   };
 
   const handleSaveCompany = async () => {
     setLoading(true);
+    setActiveSection('company');
     try {
       if (user) {
-        // Utiliser directement updateCompanySettings
+        // S'assurer que tous les champs sont envoyés à updateCompanySettings
         await updateCompanySettings({
           name: companyName,
           address: companyAddress,
@@ -140,10 +145,11 @@ const Settings = () => {
           updated_at: new Date().toISOString()
         });
         
-        // Mettre également à jour l'état local de l'utilisateur
+        // Mettre également à jour l'état local de l'utilisateur avec tous les champs
         await updateUser({
           ...user,
           company: {
+            ...user.company,
             name: companyName,
             address: companyAddress,
             phone: companyPhone,
@@ -161,14 +167,16 @@ const Settings = () => {
       toast.error("Erreur lors de la mise à jour des informations");
     } finally {
       setLoading(false);
+      setActiveSection(null);
     }
   };
 
   const handleSaveReceiptSettings = async () => {
     setLoading(true);
+    setActiveSection('receipt');
     try {
       if (user) {
-        // Utiliser directement updateReceiptSettings
+        // S'assurer que tous les champs sont envoyés à updateReceiptSettings
         await updateReceiptSettings({
           show_logo: showLogo,
           show_contact: showContact,
@@ -181,6 +189,7 @@ const Settings = () => {
         await updateUser({
           ...user,
           receiptSettings: {
+            ...user.receiptSettings,
             showLogo,
             showContact,
             showCompanyInfo,
@@ -198,6 +207,7 @@ const Settings = () => {
       toast.error("Erreur lors de la mise à jour des paramètres");
     } finally {
       setLoading(false);
+      setActiveSection(null);
     }
   };
 
@@ -268,11 +278,14 @@ const Settings = () => {
                 <CardFooter>
                   <Button 
                     onClick={handleSaveProfile} 
-                    disabled={loading}
+                    disabled={loading && activeSection === 'profile'}
                     className="bg-kioska-navy hover:bg-kioska-navy/90"
                   >
-                    {loading ? (
-                      "Enregistrement..."
+                    {loading && activeSection === 'profile' ? (
+                      <>
+                        <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                        Enregistrement...
+                      </>
                     ) : (
                       <>
                         <SaveIcon className="mr-2 h-4 w-4" />
@@ -333,11 +346,14 @@ const Settings = () => {
                 <CardFooter>
                   <Button 
                     onClick={handleSaveCompany} 
-                    disabled={loading}
+                    disabled={loading && activeSection === 'company'}
                     className="bg-kioska-navy hover:bg-kioska-navy/90"
                   >
-                    {loading ? (
-                      "Enregistrement..."
+                    {loading && activeSection === 'company' ? (
+                      <>
+                        <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                        Enregistrement...
+                      </>
                     ) : (
                       <>
                         <SaveIcon className="mr-2 h-4 w-4" />
@@ -358,31 +374,31 @@ const Settings = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show-logo" className="cursor-pointer">Afficher le logo sur les reçus</Label>
                     <Switch
                       id="show-logo"
                       checked={showLogo}
                       onCheckedChange={setShowLogo}
                     />
-                    <Label htmlFor="show-logo">Afficher le logo sur les reçus</Label>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show-company-info" className="cursor-pointer">Afficher les informations de l'entreprise</Label>
                     <Switch
                       id="show-company-info"
                       checked={showCompanyInfo}
                       onCheckedChange={setShowCompanyInfo}
                     />
-                    <Label htmlFor="show-company-info">Afficher les informations de l'entreprise</Label>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show-contact" className="cursor-pointer">Afficher les coordonnées du compte</Label>
                     <Switch
                       id="show-contact"
                       checked={showContact}
                       onCheckedChange={setShowContact}
                     />
-                    <Label htmlFor="show-contact">Afficher les coordonnées du compte</Label>
                   </div>
                   
                   <div className="space-y-2">
@@ -398,11 +414,14 @@ const Settings = () => {
                 <CardFooter>
                   <Button 
                     onClick={handleSaveReceiptSettings} 
-                    disabled={loading}
+                    disabled={loading && activeSection === 'receipt'}
                     className="bg-kioska-navy hover:bg-kioska-navy/90"
                   >
-                    {loading ? (
-                      "Enregistrement..."
+                    {loading && activeSection === 'receipt' ? (
+                      <>
+                        <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                        Enregistrement...
+                      </>
                     ) : (
                       <>
                         <SaveIcon className="mr-2 h-4 w-4" />
