@@ -101,15 +101,28 @@ const Settings = () => {
     setActiveSection('profile');
     try {
       if (user) {
-        // S'assurer que tous les champs sont envoyés à updateProfile
-        await updateProfile({
-          name,
-          email,
-          phone,
-          updated_at: new Date().toISOString()
-        });
+        console.log("Saving profile with data:", { name, email, phone });
         
-        // Mettre également à jour l'état local de l'utilisateur avec tous les champs
+        // Direct database update to profiles table
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            name,
+            email,
+            phone,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+          .select();
+          
+        if (profileError) {
+          console.error("Profile update error:", profileError);
+          throw profileError;
+        }
+        
+        console.log("Profile updated successfully:", profileData);
+        
+        // Update local user state
         await updateUser({
           ...user,
           name,
@@ -136,16 +149,29 @@ const Settings = () => {
     setActiveSection('company');
     try {
       if (user) {
-        // S'assurer que tous les champs sont envoyés à updateCompanySettings
-        await updateCompanySettings({
-          name: companyName,
-          address: companyAddress,
-          phone: companyPhone,
-          email: companyEmail,
-          updated_at: new Date().toISOString()
-        });
+        console.log("Saving company with data:", { companyName, companyAddress, companyPhone, companyEmail });
         
-        // Mettre également à jour l'état local de l'utilisateur avec tous les champs
+        // Direct database update to company_settings table
+        const { data: companyData, error: companyError } = await supabase
+          .from('company_settings')
+          .update({
+            name: companyName,
+            address: companyAddress,
+            phone: companyPhone,
+            email: companyEmail,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+          .select();
+        
+        if (companyError) {
+          console.error("Company update error:", companyError);
+          throw companyError;
+        }
+        
+        console.log("Company updated successfully:", companyData);
+        
+        // Update local user state
         await updateUser({
           ...user,
           company: {
@@ -176,16 +202,29 @@ const Settings = () => {
     setActiveSection('receipt');
     try {
       if (user) {
-        // S'assurer que tous les champs sont envoyés à updateReceiptSettings
-        await updateReceiptSettings({
-          show_logo: showLogo,
-          show_contact: showContact,
-          show_company_info: showCompanyInfo,
-          footer_text: footerText,
-          updated_at: new Date().toISOString()
-        });
+        console.log("Saving receipt settings with data:", { showLogo, showContact, showCompanyInfo, footerText });
         
-        // Mettre également à jour l'état local de l'utilisateur
+        // Direct database update to receipt_settings table
+        const { data: receiptData, error: receiptError } = await supabase
+          .from('receipt_settings')
+          .update({
+            show_logo: showLogo,
+            show_contact: showContact,
+            show_company_info: showCompanyInfo,
+            footer_text: footerText,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+          .select();
+        
+        if (receiptError) {
+          console.error("Receipt settings update error:", receiptError);
+          throw receiptError;
+        }
+        
+        console.log("Receipt settings updated successfully:", receiptData);
+        
+        // Update local user state
         await updateUser({
           ...user,
           receiptSettings: {
