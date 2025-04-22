@@ -35,7 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, updateProfile, updateCompanySettings, updateReceiptSettings } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   
@@ -60,6 +60,7 @@ const Settings = () => {
   };
   
   const activeUser = user || mockUser;
+  const isDemo = !user;
   
   // User profile settings
   const [name, setName] = useState(activeUser?.name || "");
@@ -100,48 +101,80 @@ const Settings = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     setActiveSection('profile');
+    
     try {
-      if (user) {
-        console.log("Saving profile with data:", { name, email, phone });
+      if (isDemo) {
+        // Demo mode - simulate update
+        setTimeout(() => {
+          toast.success("Profil mis à jour avec succès (mode démo)");
+          
+          // Update local demo user
+          mockUser.name = name;
+          mockUser.email = email;
+          mockUser.phone = phone;
+          
+          setLoading(false);
+          setActiveSection(null);
+        }, 500);
+        return;
+      }
+      
+      // Real user mode
+      if (!name.trim()) {
+        throw new Error("Le nom ne peut pas être vide");
+      }
+      
+      console.log("Saving profile with data:", { name, email, phone });
+      
+      // First, check if the user exists in profiles table
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
         
-        if (!name.trim()) {
-          throw new Error("Le nom ne peut pas être vide");
-        }
+      if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+        throw profileCheckError;
+      }
+      
+      if (existingProfile) {
+        // Update existing profile
+        const { data: updatedProfile, error: updateError } = await updateProfile({
+          name,
+          email,
+          phone,
+          updated_at: new Date().toISOString()
+        });
         
-        // Direct database update to profiles table
-        const { data: profileData, error: profileError } = await supabase
+        if (updateError) throw updateError;
+        console.log("Profile updated:", updatedProfile);
+      } else {
+        // Create new profile
+        const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
-          .update({
+          .insert({
+            id: user.id,
             name,
             email,
             phone,
             updated_at: new Date().toISOString()
           })
-          .eq('id', user.id)
-          .select();
+          .select()
+          .single();
           
-        if (profileError) {
-          console.error("Profile update error:", profileError);
-          throw new Error(`Erreur de mise à jour: ${profileError.message}`);
-        }
-        
-        console.log("Profile updated successfully:", profileData);
-        
-        // Update local user state
-        await updateUser({
-          ...user,
-          name,
-          email,
-          phone
-        });
-        
-        toast.success("Profil mis à jour avec succès");
-      } else {
-        // Mode démo - simuler une mise à jour réussie
-        setTimeout(() => {
-          toast.success("Profil mis à jour avec succès (mode démo)");
-        }, 500);
+        if (insertError) throw insertError;
+        console.log("New profile created:", newProfile);
       }
+      
+      // Update local user state
+      await updateUser({
+        ...user,
+        name,
+        email,
+        phone
+      });
+      
+      toast.success("Profil mis à jour avec succès");
     } catch (error: any) {
       console.error("Erreur lors de la mise à jour du profil:", error);
       toast.error(error.message || "Erreur lors de la mise à jour du profil");
@@ -154,49 +187,85 @@ const Settings = () => {
   const handleSaveCompany = async () => {
     setLoading(true);
     setActiveSection('company');
+    
     try {
-      if (user) {
-        console.log("Saving company with data:", { companyName, companyAddress, companyPhone, companyEmail });
+      if (isDemo) {
+        // Demo mode - simulate update
+        setTimeout(() => {
+          toast.success("Informations de l'entreprise mises à jour (mode démo)");
+          
+          // Update local demo user
+          if (mockUser.company) {
+            mockUser.company.name = companyName;
+            mockUser.company.address = companyAddress;
+            mockUser.company.phone = companyPhone;
+            mockUser.company.email = companyEmail;
+          }
+          
+          setLoading(false);
+          setActiveSection(null);
+        }, 500);
+        return;
+      }
+      
+      // Real user mode
+      console.log("Saving company with data:", { companyName, companyAddress, companyPhone, companyEmail });
+      
+      // First, check if company settings exist
+      const { data: existingSettings, error: settingsCheckError } = await supabase
+        .from('company_settings')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
         
-        // Direct database update to company_settings table
-        const { data: companyData, error: companyError } = await supabase
+      if (settingsCheckError && settingsCheckError.code !== 'PGRST116') {
+        throw settingsCheckError;
+      }
+      
+      if (existingSettings) {
+        // Update existing settings
+        const { data: updatedSettings, error: updateError } = await updateCompanySettings({
+          name: companyName,
+          address: companyAddress,
+          phone: companyPhone,
+          email: companyEmail,
+          updated_at: new Date().toISOString()
+        });
+        
+        if (updateError) throw updateError;
+        console.log("Company settings updated:", updatedSettings);
+      } else {
+        // Create new settings
+        const { data: newSettings, error: insertError } = await supabase
           .from('company_settings')
-          .update({
+          .insert({
+            id: user.id,
             name: companyName,
             address: companyAddress,
             phone: companyPhone,
             email: companyEmail,
             updated_at: new Date().toISOString()
           })
-          .eq('id', user.id)
-          .select();
-        
-        if (companyError) {
-          console.error("Company update error:", companyError);
-          throw new Error(`Erreur de mise à jour: ${companyError.message}`);
-        }
-        
-        console.log("Company updated successfully:", companyData);
-        
-        // Update local user state
-        await updateUser({
-          ...user,
-          company: {
-            ...user.company,
-            name: companyName,
-            address: companyAddress,
-            phone: companyPhone,
-            email: companyEmail
-          }
-        });
-        
-        toast.success("Informations de l'entreprise mises à jour");
-      } else {
-        // Mode démo
-        setTimeout(() => {
-          toast.success("Informations de l'entreprise mises à jour (mode démo)");
-        }, 500);
+          .select()
+          .single();
+          
+        if (insertError) throw insertError;
+        console.log("New company settings created:", newSettings);
       }
+      
+      // Update local user state
+      await updateUser({
+        ...user,
+        company: {
+          ...user.company,
+          name: companyName,
+          address: companyAddress,
+          phone: companyPhone,
+          email: companyEmail
+        }
+      });
+      
+      toast.success("Informations de l'entreprise mises à jour");
     } catch (error: any) {
       console.error("Erreur lors de la mise à jour des informations:", error);
       toast.error(error.message || "Erreur lors de la mise à jour des informations");
@@ -209,49 +278,85 @@ const Settings = () => {
   const handleSaveReceiptSettings = async () => {
     setLoading(true);
     setActiveSection('receipt');
+    
     try {
-      if (user) {
-        console.log("Saving receipt settings with data:", { showLogo, showContact, showCompanyInfo, footerText });
+      if (isDemo) {
+        // Demo mode - simulate update
+        setTimeout(() => {
+          toast.success("Paramètres d'impression mis à jour (mode démo)");
+          
+          // Update local demo user
+          if (mockUser.receiptSettings) {
+            mockUser.receiptSettings.showLogo = showLogo;
+            mockUser.receiptSettings.showContact = showContact;
+            mockUser.receiptSettings.showCompanyInfo = showCompanyInfo;
+            mockUser.receiptSettings.footerText = footerText;
+          }
+          
+          setLoading(false);
+          setActiveSection(null);
+        }, 500);
+        return;
+      }
+      
+      // Real user mode
+      console.log("Saving receipt settings with data:", { showLogo, showContact, showCompanyInfo, footerText });
+      
+      // First, check if receipt settings exist
+      const { data: existingSettings, error: settingsCheckError } = await supabase
+        .from('receipt_settings')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
         
-        // Direct database update to receipt_settings table
-        const { data: receiptData, error: receiptError } = await supabase
+      if (settingsCheckError && settingsCheckError.code !== 'PGRST116') {
+        throw settingsCheckError;
+      }
+      
+      if (existingSettings) {
+        // Update existing settings
+        const { data: updatedSettings, error: updateError } = await updateReceiptSettings({
+          show_logo: showLogo,
+          show_contact: showContact,
+          show_company_info: showCompanyInfo,
+          footer_text: footerText,
+          updated_at: new Date().toISOString()
+        });
+        
+        if (updateError) throw updateError;
+        console.log("Receipt settings updated:", updatedSettings);
+      } else {
+        // Create new settings
+        const { data: newSettings, error: insertError } = await supabase
           .from('receipt_settings')
-          .update({
+          .insert({
+            id: user.id,
             show_logo: showLogo,
             show_contact: showContact,
             show_company_info: showCompanyInfo,
             footer_text: footerText,
             updated_at: new Date().toISOString()
           })
-          .eq('id', user.id)
-          .select();
-        
-        if (receiptError) {
-          console.error("Receipt settings update error:", receiptError);
-          throw new Error(`Erreur de mise à jour: ${receiptError.message}`);
-        }
-        
-        console.log("Receipt settings updated successfully:", receiptData);
-        
-        // Update local user state
-        await updateUser({
-          ...user,
-          receiptSettings: {
-            ...user.receiptSettings,
-            showLogo,
-            showContact,
-            showCompanyInfo,
-            footerText
-          }
-        });
-        
-        toast.success("Paramètres d'impression mis à jour");
-      } else {
-        // Mode démo
-        setTimeout(() => {
-          toast.success("Paramètres d'impression mis à jour (mode démo)");
-        }, 500);
+          .select()
+          .single();
+          
+        if (insertError) throw insertError;
+        console.log("New receipt settings created:", newSettings);
       }
+      
+      // Update local user state
+      await updateUser({
+        ...user,
+        receiptSettings: {
+          ...user.receiptSettings,
+          showLogo,
+          showContact,
+          showCompanyInfo,
+          footerText
+        }
+      });
+      
+      toast.success("Paramètres d'impression mis à jour");
     } catch (error: any) {
       console.error("Erreur lors de la mise à jour des paramètres:", error);
       toast.error(error.message || "Erreur lors de la mise à jour des paramètres");
@@ -261,6 +366,7 @@ const Settings = () => {
     }
   };
 
+  // The rest of your component stays the same
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6 md:pl-56">
@@ -269,6 +375,11 @@ const Settings = () => {
           <p className="text-muted-foreground">
             Configurez votre compte, votre entreprise et les options d'impression
           </p>
+          {isDemo && (
+            <div className="mt-2 rounded-md bg-yellow-50 p-3 text-yellow-800 border border-yellow-200">
+              <p className="text-sm font-medium">Mode démo : Les changements ne seront pas sauvegardés dans la base de données.</p>
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
