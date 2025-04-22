@@ -19,18 +19,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { 
   UserIcon, 
   BuildingIcon, 
   PrinterIcon, 
+  CheckIcon,
   SaveIcon
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, updateProfile, updateCompanySettings, updateReceiptSettings } = useAuth();
   const [loading, setLoading] = useState(false);
   
   // Mock user data if no real user is logged in
@@ -95,15 +98,29 @@ const Settings = () => {
     setLoading(true);
     try {
       if (user) {
+        // Utiliser directement updateProfile pour mettre à jour les données de profil
+        await updateProfile({
+          name,
+          email,
+          phone,
+          updated_at: new Date().toISOString()
+        });
+        
+        // Mettre également à jour l'état local de l'utilisateur 
         await updateUser({
           ...user,
           name,
           email,
           phone
         });
+        
+        toast.success("Profil mis à jour avec succès");
+      } else {
+        // Mode démo - simuler une mise à jour réussie
+        toast.success("Profil mis à jour avec succès (mode démo)");
       }
-      toast.success("Profil mis à jour avec succès" + (user ? "" : " (mode démo)"));
     } catch (error) {
+      console.error("Erreur lors de la mise à jour du profil:", error);
       toast.error("Erreur lors de la mise à jour du profil");
     } finally {
       setLoading(false);
@@ -114,6 +131,16 @@ const Settings = () => {
     setLoading(true);
     try {
       if (user) {
+        // Utiliser directement updateCompanySettings
+        await updateCompanySettings({
+          name: companyName,
+          address: companyAddress,
+          phone: companyPhone,
+          email: companyEmail,
+          updated_at: new Date().toISOString()
+        });
+        
+        // Mettre également à jour l'état local de l'utilisateur
         await updateUser({
           ...user,
           company: {
@@ -123,9 +150,14 @@ const Settings = () => {
             email: companyEmail
           }
         });
+        
+        toast.success("Informations de l'entreprise mises à jour");
+      } else {
+        // Mode démo
+        toast.success("Informations de l'entreprise mises à jour (mode démo)");
       }
-      toast.success("Informations de l'entreprise mises à jour" + (user ? "" : " (mode démo)"));
     } catch (error) {
+      console.error("Erreur lors de la mise à jour des informations:", error);
       toast.error("Erreur lors de la mise à jour des informations");
     } finally {
       setLoading(false);
@@ -136,6 +168,16 @@ const Settings = () => {
     setLoading(true);
     try {
       if (user) {
+        // Utiliser directement updateReceiptSettings
+        await updateReceiptSettings({
+          show_logo: showLogo,
+          show_contact: showContact,
+          show_company_info: showCompanyInfo,
+          footer_text: footerText,
+          updated_at: new Date().toISOString()
+        });
+        
+        // Mettre également à jour l'état local de l'utilisateur
         await updateUser({
           ...user,
           receiptSettings: {
@@ -145,9 +187,14 @@ const Settings = () => {
             footerText
           }
         });
+        
+        toast.success("Paramètres d'impression mis à jour");
+      } else {
+        // Mode démo
+        toast.success("Paramètres d'impression mis à jour (mode démo)");
       }
-      toast.success("Paramètres d'impression mis à jour" + (user ? "" : " (mode démo)"));
     } catch (error) {
+      console.error("Erreur lors de la mise à jour des paramètres:", error);
       toast.error("Erreur lors de la mise à jour des paramètres");
     } finally {
       setLoading(false);
@@ -224,8 +271,14 @@ const Settings = () => {
                     disabled={loading}
                     className="bg-kioska-navy hover:bg-kioska-navy/90"
                   >
-                    <SaveIcon className="mr-2 h-4 w-4" />
-                    Enregistrer les modifications
+                    {loading ? (
+                      "Enregistrement..."
+                    ) : (
+                      <>
+                        <SaveIcon className="mr-2 h-4 w-4" />
+                        Enregistrer les modifications
+                      </>
+                    )}
                   </Button>
                 </CardFooter>
               </Card>
@@ -283,8 +336,14 @@ const Settings = () => {
                     disabled={loading}
                     className="bg-kioska-navy hover:bg-kioska-navy/90"
                   >
-                    <SaveIcon className="mr-2 h-4 w-4" />
-                    Enregistrer les modifications
+                    {loading ? (
+                      "Enregistrement..."
+                    ) : (
+                      <>
+                        <SaveIcon className="mr-2 h-4 w-4" />
+                        Enregistrer les modifications
+                      </>
+                    )}
                   </Button>
                 </CardFooter>
               </Card>
@@ -300,34 +359,28 @@ const Settings = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
+                    <Switch
                       id="show-logo"
                       checked={showLogo}
-                      onChange={(e) => setShowLogo(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      onCheckedChange={setShowLogo}
                     />
                     <Label htmlFor="show-logo">Afficher le logo sur les reçus</Label>
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
+                    <Switch
                       id="show-company-info"
                       checked={showCompanyInfo}
-                      onChange={(e) => setShowCompanyInfo(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      onCheckedChange={setShowCompanyInfo}
                     />
                     <Label htmlFor="show-company-info">Afficher les informations de l'entreprise</Label>
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
+                    <Switch
                       id="show-contact"
                       checked={showContact}
-                      onChange={(e) => setShowContact(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      onCheckedChange={setShowContact}
                     />
                     <Label htmlFor="show-contact">Afficher les coordonnées du compte</Label>
                   </div>
@@ -348,8 +401,14 @@ const Settings = () => {
                     disabled={loading}
                     className="bg-kioska-navy hover:bg-kioska-navy/90"
                   >
-                    <SaveIcon className="mr-2 h-4 w-4" />
-                    Enregistrer les paramètres
+                    {loading ? (
+                      "Enregistrement..."
+                    ) : (
+                      <>
+                        <SaveIcon className="mr-2 h-4 w-4" />
+                        Enregistrer les paramètres
+                      </>
+                    )}
                   </Button>
                 </CardFooter>
               </Card>
