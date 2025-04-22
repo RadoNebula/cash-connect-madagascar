@@ -31,10 +31,11 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Textarea } from "@/components/ui/textarea";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user, updateUser, updateProfile, updateCompanySettings, updateReceiptSettings } = useAuth();
+  const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   
@@ -103,6 +104,10 @@ const Settings = () => {
       if (user) {
         console.log("Saving profile with data:", { name, email, phone });
         
+        if (!name.trim()) {
+          throw new Error("Le nom ne peut pas être vide");
+        }
+        
         // Direct database update to profiles table
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -117,7 +122,7 @@ const Settings = () => {
           
         if (profileError) {
           console.error("Profile update error:", profileError);
-          throw profileError;
+          throw new Error(`Erreur de mise à jour: ${profileError.message}`);
         }
         
         console.log("Profile updated successfully:", profileData);
@@ -133,11 +138,13 @@ const Settings = () => {
         toast.success("Profil mis à jour avec succès");
       } else {
         // Mode démo - simuler une mise à jour réussie
-        toast.success("Profil mis à jour avec succès (mode démo)");
+        setTimeout(() => {
+          toast.success("Profil mis à jour avec succès (mode démo)");
+        }, 500);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors de la mise à jour du profil:", error);
-      toast.error("Erreur lors de la mise à jour du profil");
+      toast.error(error.message || "Erreur lors de la mise à jour du profil");
     } finally {
       setLoading(false);
       setActiveSection(null);
@@ -166,7 +173,7 @@ const Settings = () => {
         
         if (companyError) {
           console.error("Company update error:", companyError);
-          throw companyError;
+          throw new Error(`Erreur de mise à jour: ${companyError.message}`);
         }
         
         console.log("Company updated successfully:", companyData);
@@ -186,11 +193,13 @@ const Settings = () => {
         toast.success("Informations de l'entreprise mises à jour");
       } else {
         // Mode démo
-        toast.success("Informations de l'entreprise mises à jour (mode démo)");
+        setTimeout(() => {
+          toast.success("Informations de l'entreprise mises à jour (mode démo)");
+        }, 500);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors de la mise à jour des informations:", error);
-      toast.error("Erreur lors de la mise à jour des informations");
+      toast.error(error.message || "Erreur lors de la mise à jour des informations");
     } finally {
       setLoading(false);
       setActiveSection(null);
@@ -219,7 +228,7 @@ const Settings = () => {
         
         if (receiptError) {
           console.error("Receipt settings update error:", receiptError);
-          throw receiptError;
+          throw new Error(`Erreur de mise à jour: ${receiptError.message}`);
         }
         
         console.log("Receipt settings updated successfully:", receiptData);
@@ -239,11 +248,13 @@ const Settings = () => {
         toast.success("Paramètres d'impression mis à jour");
       } else {
         // Mode démo
-        toast.success("Paramètres d'impression mis à jour (mode démo)");
+        setTimeout(() => {
+          toast.success("Paramètres d'impression mis à jour (mode démo)");
+        }, 500);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors de la mise à jour des paramètres:", error);
-      toast.error("Erreur lors de la mise à jour des paramètres");
+      toast.error(error.message || "Erreur lors de la mise à jour des paramètres");
     } finally {
       setLoading(false);
       setActiveSection(null);
@@ -292,6 +303,7 @@ const Settings = () => {
                       id="name" 
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      required
                     />
                   </div>
                   
@@ -356,10 +368,11 @@ const Settings = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="company-address">Adresse</Label>
-                    <Input 
+                    <Textarea 
                       id="company-address" 
                       value={companyAddress}
                       onChange={(e) => setCompanyAddress(e.target.value)}
+                      className="min-h-20"
                     />
                   </div>
                   
