@@ -139,15 +139,18 @@ const Settings = () => {
       
       if (existingProfile) {
         // Update existing profile
-        const { data: updatedProfile, error: updateError } = await updateProfile({
-          name,
-          email,
-          phone,
-          updated_at: new Date().toISOString()
-        });
-        
-        if (updateError) throw updateError;
-        console.log("Profile updated:", updatedProfile);
+        try {
+          const updatedProfile = await updateProfile({
+            name,
+            email,
+            phone,
+            updated_at: new Date().toISOString()
+          });
+          
+          console.log("Profile updated:", updatedProfile);
+        } catch (error) {
+          throw error;
+        }
       } else {
         // Create new profile
         const { data: newProfile, error: insertError } = await supabase
@@ -224,16 +227,19 @@ const Settings = () => {
       
       if (existingSettings) {
         // Update existing settings
-        const { data: updatedSettings, error: updateError } = await updateCompanySettings({
-          name: companyName,
-          address: companyAddress,
-          phone: companyPhone,
-          email: companyEmail,
-          updated_at: new Date().toISOString()
-        });
-        
-        if (updateError) throw updateError;
-        console.log("Company settings updated:", updatedSettings);
+        try {
+          const updatedSettings = await updateCompanySettings({
+            name: companyName,
+            address: companyAddress,
+            phone: companyPhone,
+            email: companyEmail,
+            updated_at: new Date().toISOString()
+          });
+          
+          console.log("Company settings updated:", updatedSettings);
+        } catch (error) {
+          throw error;
+        }
       } else {
         // Create new settings
         const { data: newSettings, error: insertError } = await supabase
@@ -315,16 +321,19 @@ const Settings = () => {
       
       if (existingSettings) {
         // Update existing settings
-        const { data: updatedSettings, error: updateError } = await updateReceiptSettings({
-          show_logo: showLogo,
-          show_contact: showContact,
-          show_company_info: showCompanyInfo,
-          footer_text: footerText,
-          updated_at: new Date().toISOString()
-        });
-        
-        if (updateError) throw updateError;
-        console.log("Receipt settings updated:", updatedSettings);
+        try {
+          const updatedSettings = await updateReceiptSettings({
+            show_logo: showLogo,
+            show_contact: showContact,
+            show_company_info: showCompanyInfo,
+            footer_text: footerText,
+            updated_at: new Date().toISOString()
+          });
+          
+          console.log("Receipt settings updated:", updatedSettings);
+        } catch (error) {
+          throw error;
+        }
       } else {
         // Create new settings
         const { data: newSettings, error: insertError } = await supabase
